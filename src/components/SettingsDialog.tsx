@@ -46,6 +46,7 @@ export function SettingsDialog() {
   const resetAll = useStore((state) => state.resetAll)
   const createNote = useStore((state) => state.createNote)
   const pushToast = useStore((state) => state.pushToast)
+  const openDialog = useStore((state) => state.openDialog)
 
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null)
@@ -230,7 +231,33 @@ export function SettingsDialog() {
         </section>
 
         <section>
-          <SectionTitle icon={Sparkles} title="Deneyim" />
+          <SectionTitle icon={Sparkles} title="AI Asistan" />
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3.5">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-extrabold">Groq / OpenRouter ile çalış</p>
+                <p className="mt-0.5 max-w-md text-xs font-semibold leading-relaxed text-[var(--text-faint)]">
+                  Notlarını düzelt, özetle, şemaya çevir veya görsel üret. Groq anahtarını gir,
+                  tarayıcıdan doğrudan çalışır; istersen OpenRouter, xAI veya OpenAI kullan.
+                </p>
+              </div>
+              <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[0.62rem] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">
+                İsteğe bağlı
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => openDialog('ai')}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)] active:scale-[0.98]"
+            >
+              <Sparkles className="size-3.5" />
+              AI panelini aç
+            </button>
+          </div>
+        </section>
+
+        <section>
+          <SectionTitle icon={PartyPopper} title="Deneyim" />
           <div className="divide-y divide-[var(--border)]">
             <Toggle
               icon={PartyPopper}

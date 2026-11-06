@@ -14,6 +14,7 @@ Bloknot, tarayıcında çalışan; hesap açmadan kullanabileceğin, blok tabanl
 - **Bağlantıyla paylaşım.** Notu URL'ye sıkıştırıp salt okunur bağlantı olarak gönder; karşı taraf tek tıkla kendi defterine kopyalasın.
 - **Yedekleme.** JSON yedeği indir/geri yükle, Markdown içe/dışa aktar, son 5 anlık yedeği geri döndür.
 - **Tema ve vurgu rengi.** Açık/koyu/sistem teması ve beş farklı vurgu rengi.
+- **AI asistan.** Notunu düzelt, özetle, şekillendir; Mermaid şeması veya anahtarsız AI görseli ekle. Groq, OpenRouter, xAI ve OpenAI uyumlu uç noktalar desteklenir.
 - **Küçük mutluluklar.** Yapılacak işi tamamlayınca konfeti, hafif arayüz sesleri, ilham soruları.
 - **Çevrimdışı PWA.** Ana ekrana ekle, internet olmadan da yaz.
 - **Mobil uyumlu.** Telefonda da rahat kullanılır.
@@ -49,6 +50,20 @@ npm run icons     # PWA ikonlarını yeniden üret (Windows)
 Notlar **IndexedDB** içinde, yalnızca bu tarayıcıda tutulur. Tarayıcı verilerini temizlersen notlar silinir. Bu yüzden Ayarlar → Yedekleme bölümünden ara sıra JSON yedeği almanı öneririz.
 
 Paylaşım bağlantılarında not içeriği sıkıştırılmış olarak URL'nin `#/p/...` kısmında taşınır. Yani paylaşılan not bir sunucuya yüklenmez; bağlantıyı alan kişi içeriği kendi tarayıcısında açar.
+
+## AI Asistan
+
+Sağ üstteki **AI** düğmesiyle notunu düzeltebilir, özetleyebilir, başlık/listelere bölebilir, fikir üretebilir, Mermaid şeması çizebilir veya anahtarsız AI görseli üretebilirsin. Sonuçları nota ekleyebilir ya da notun tamamını değiştirebilirsin.
+
+**Groq ile başlamak (önerilen):**
+
+1. [console.groq.com/keys](https://console.groq.com/keys) üzerinden ücretsiz bir Groq API anahtarı oluştur.
+2. AI panelinde sağlayıcı olarak **Groq**'u seç. Varsayılan model `openai/gpt-oss-120b`.
+3. Anahtarı **API anahtarı** alanına yapıştır. İstekler tarayıcıdan doğrudan `api.groq.com` adresine gider; ayrı bir sunucu/proxy gerekmez.
+
+Alternatif olarak **OpenRouter**, **xAI** veya OpenAI uyumlu özel bir uç nokta da seçebilirsin. Groq metin üretir; AI görselleri Groq yerine anahtarsız Pollinations servisiyle oluşturulur. Şemalar Mermaid kodu olarak üretilip görsele çevrilir.
+
+AI anahtarları varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu cihazda hatırla" ile localStorage'a kaydedebilirsin. Anahtarlar hiçbir sunucuya gönderilmez; yalnızca seçtiğin sağlayıcıya gider.
 
 ## GitHub Pages'e yayınlama
 

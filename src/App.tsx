@@ -7,6 +7,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { SettingsDialog } from './components/SettingsDialog'
 import { TemplatesDialog } from './components/TemplatesDialog'
 import { ShareDialog } from './components/ShareDialog'
+import { AiDialog } from './components/AiDialog'
 import { Toasts } from './components/Toasts'
 import { Confetti } from './components/Confetti'
 import { FormattingToolbar } from './components/editor/FormattingToolbar'
@@ -167,6 +168,7 @@ export default function App() {
       <SettingsDialog />
       <TemplatesDialog />
       <ShareDialog />
+      <AiDialog />
       <Toasts />
       <Confetti />
       <FormattingToolbar />

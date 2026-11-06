@@ -56,6 +56,7 @@ interface Store {
 
   addBlock: (noteId: string, block: Partial<Block> & { type: BlockType }, afterId?: string) => string
   insertBlocks: (noteId: string, blocks: Array<Partial<Block> & { type: BlockType }>, afterId?: string) => string[]
+  replaceBlocks: (noteId: string, blocks: Array<Partial<Block> & { type: BlockType }>) => string[]
   updateBlock: (noteId: string, blockId: string, patch: Partial<Block>) => void
   removeBlock: (noteId: string, blockId: string) => void
   moveBlock: (noteId: string, activeId: string, overId: string) => void
@@ -89,6 +90,9 @@ const DEFAULT_SETTINGS: Settings = {
   compact: false,
   lastBackupAt: null,
   welcomeSeen: false,
+  aiProvider: 'groq',
+  aiBaseUrl: 'https://api.groq.com/openai/v1',
+  aiModel: 'openai/gpt-oss-120b',
 }
 
 const BLOCK_TYPES = new Set<BlockType>([
@@ -370,6 +374,22 @@ export const useStore = create<Store>()(
         return created.map((block) => block.id)
       },
 
+      replaceBlocks: (noteId, blocks) => {
+        const created = blocks.length
+          ? blocks.map((block) => normalizeBlock(block))
+          : [newBlock('paragraph')]
+
+        set((state) => ({
+          notes: state.notes.map((note) =>
+            note.id === noteId
+              ? { ...note, blocks: created, updatedAt: Date.now() }
+              : note,
+          ),
+        }))
+
+        return created.map((block) => block.id)
+      },
+
       updateBlock: (noteId, blockId, patch) => {
         set((state) => ({
           notes: state.notes.map((note) => {
@@ -518,6 +538,14 @@ export const useStore = create<Store>()(
         activeNoteId: state.activeNoteId,
         settings: state.settings,
       }),
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<PersistedState>
+        return {
+          ...current,
+          ...saved,
+          settings: { ...current.settings, ...(saved.settings ?? {}) },
+        }
+      },
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true)
       },

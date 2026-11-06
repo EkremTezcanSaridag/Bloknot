@@ -43,6 +43,8 @@ export type ThemeMode = 'light' | 'dark' | 'system'
 
 export type AccentId = 'lavanta' | 'okyanus' | 'orman' | 'gunbatimi' | 'kiraz'
 
+export type AiProvider = 'groq' | 'openrouter' | 'xai' | 'openai' | 'custom'
+
 export interface Settings {
   theme: ThemeMode
   accent: AccentId
@@ -51,6 +53,9 @@ export interface Settings {
   compact: boolean
   lastBackupAt: number | null
   welcomeSeen: boolean
+  aiProvider: AiProvider
+  aiBaseUrl: string
+  aiModel: string
 }
 
 export interface Toast {
@@ -59,7 +64,7 @@ export interface Toast {
   tone: 'default' | 'success' | 'danger'
 }
 
-export type DialogName = 'settings' | 'templates' | 'share' | null
+export type DialogName = 'settings' | 'templates' | 'share' | 'ai' | null
 
 export interface Snapshot {
   id: string

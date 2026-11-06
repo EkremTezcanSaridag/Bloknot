@@ -14,6 +14,7 @@ import {
   Plus,
   Share2,
   Smile,
+  Sparkles,
   Star,
   Tag,
   Trash2,
@@ -63,6 +64,7 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
   const addTag = useStore((state) => state.addTag)
   const removeTag = useStore((state) => state.removeTag)
   const openShare = useStore((state) => state.openShare)
+  const openDialog = useStore((state) => state.openDialog)
   const pushToast = useStore((state) => state.pushToast)
   const setSidebarOpen = useStore((state) => state.setSidebarOpen)
   const focusMode = useStore((state) => state.focusMode)
@@ -204,6 +206,17 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
               Bu cihazda
             </span>
           )}
+
+          <button
+            type="button"
+            onClick={() => openDialog('ai')}
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+            title="AI asistan"
+            aria-label="AI asistan"
+          >
+            <Sparkles className="size-4.5" />
+            <span className="hidden text-xs font-bold sm:inline">AI</span>
+          </button>
 
           <button
             type="button"

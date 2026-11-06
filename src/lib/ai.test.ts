@@ -1,0 +1,105 @@
+import { describe, expect, it } from 'vitest'
+import type { Note } from '../types'
+import {
+  AI_PROVIDERS,
+  buildPrompt,
+  chatEndpoint,
+  extractMermaid,
+  mermaidInkUrl,
+  pollinationsUrl,
+} from './ai'
+
+const note: Note = {
+  id: 'n1',
+  title: 'Deneme',
+  emoji: '📝',
+  tags: [],
+  favorite: false,
+  createdAt: 1,
+  updatedAt: 1,
+  blocks: [
+    { id: 'b1', type: 'paragraph', html: 'Merhaba dünya' },
+    { id: 'b2', type: 'todo', html: 'Test yaz', checked: false },
+  ],
+}
+
+describe('extractMermaid', () => {
+  it('mermaid kod bloğunu ayıklar', () => {
+    const text = 'İşte şema:\n\n```mermaid\nflowchart TD\n  A --> B\n```\n'
+    expect(extractMermaid(text)).toBe('flowchart TD\n  A --> B')
+  })
+
+  it('dilsiz kod bloğunu da tanır', () => {
+    expect(extractMermaid('```\ngraph LR\n  A --> B\n```')).toBe('graph LR\n  A --> B')
+  })
+
+  it('kod bloğu olmayan çıplak diyagramı kabul eder', () => {
+    expect(extractMermaid('sequenceDiagram\n  A->>B: Merhaba')).toContain('sequenceDiagram')
+  })
+
+  it('diyagram olmayan yanıtta null döndürür', () => {
+    expect(extractMermaid('Bu sadece normal bir metin.')).toBeNull()
+  })
+})
+
+describe('görsel adresleri', () => {
+  it('mermaid.ink için URL güvenli base64 üretir', () => {
+    const url = mermaidInkUrl('flowchart TD\n  A[Merhaba] --> B[Dünya]')
+    expect(url).toMatch(/^https:\/\/mermaid\.ink\/svg\/[A-Za-z0-9_-]+\?bgColor=ffffff$/)
+    expect(url).not.toContain('+')
+    expect(url.split('?')[0]).not.toMatch(/=$/)
+  })
+
+  it('pollinations adresine tarifi ve tohumu koyar', () => {
+    const url = pollinationsUrl('ay ışığında tilki', 800, 600, 42)
+    expect(url).toContain('ay%20%C4%B1%C5%9F%C4%B1%C4%9F%C4%B1nda%20tilki')
+    expect(url).toContain('width=800')
+    expect(url).toContain('height=600')
+    expect(url).toContain('seed=42')
+  })
+
+  it('pollinations tohumunu 32 bit sınırına indirir', () => {
+    const url = pollinationsUrl('test', 512, 512, Date.now())
+    const seed = Number(new URL(url).searchParams.get('seed'))
+    expect(seed).toBeGreaterThanOrEqual(0)
+    expect(seed).toBeLessThan(2_147_483_647)
+  })
+})
+
+describe('sağlayıcılar', () => {
+  it('Groq doğrudan bağlantı varsayılanlarını tanımlar', () => {
+    const groq = AI_PROVIDERS.groq
+    expect(groq.model).toBe('openai/gpt-oss-120b')
+    expect(groq.baseUrl).toBe('https://api.groq.com/openai/v1')
+    expect(groq.requiresKey).toBe(true)
+  })
+})
+
+describe('istek üretimi', () => {
+  it('uç noktayı tamamlar ve tekrar eklemez', () => {
+    expect(chatEndpoint('https://openrouter.ai/api/v1/')).toBe(
+      'https://openrouter.ai/api/v1/chat/completions',
+    )
+    expect(chatEndpoint('https://example.com/v1/chat/completions')).toBe(
+      'https://example.com/v1/chat/completions',
+    )
+  })
+
+  it('notu ve ek isteği bağlama katar', () => {
+    const prompt = buildPrompt('format', note, 'kısa tut', true)
+    expect(prompt).toContain('Merhaba dünya')
+    expect(prompt).toContain('- [ ] Test yaz')
+    expect(prompt).toContain('kısa tut')
+    expect(prompt).toContain('Markdown')
+  })
+
+  it('not gönderimi kapalıyken notu eklemez', () => {
+    const prompt = buildPrompt('custom', note, 'Sadece fikir ver', false)
+    expect(prompt).toContain('Sadece fikir ver')
+    expect(prompt).not.toContain('Merhaba dünya')
+  })
+
+  it('görsel isteminde doğrudan tarifi döndürür', () => {
+    expect(buildPrompt('image', note, 'pastel tilki', true)).toBe('pastel tilki')
+  })
+})

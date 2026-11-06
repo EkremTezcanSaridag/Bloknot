@@ -5,6 +5,15 @@ beforeEach(() => {
   useStore.getState().resetAll()
 })
 
+describe('ayarlar', () => {
+  it('varsayılan AI sağlayıcısı Groq olur', () => {
+    const settings = useStore.getState().settings
+    expect(settings.aiProvider).toBe('groq')
+    expect(settings.aiBaseUrl).toBe('https://api.groq.com/openai/v1')
+    expect(settings.aiModel).toBe('openai/gpt-oss-120b')
+  })
+})
+
 describe('not işlemleri', () => {
   it('not oluşturur ve aktif not yapar', () => {
     const id = useStore.getState().createNote({ title: 'Deneme', tags: ['#fikir', 'fikir'] })
@@ -31,6 +40,19 @@ describe('not işlemleri', () => {
     blocks = useStore.getState().notes[0].blocks
     expect(blocks[0].id).toBe(secondId)
     expect(blocks[0].html).toContain('<b>başlık</b>')
+  })
+
+  it('notun tüm bloklarını değiştirir', () => {
+    const id = useStore.getState().createNote({ title: 'AI sonucu' })
+
+    useStore.getState().replaceBlocks(id, [
+      { type: 'heading1', html: 'Yeni başlık' },
+      { type: 'todo', html: 'Yeni görev' },
+    ])
+
+    const blocks = useStore.getState().notes[0].blocks
+    expect(blocks.map((block) => block.type)).toEqual(['heading1', 'todo'])
+    expect(blocks[0].html).toBe('Yeni başlık')
   })
 
   it('yapılacak durumunu değiştirir', () => {
