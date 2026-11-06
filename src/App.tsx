@@ -8,6 +8,7 @@ import { SettingsDialog } from './components/SettingsDialog'
 import { TemplatesDialog } from './components/TemplatesDialog'
 import { ShareDialog } from './components/ShareDialog'
 import { AiDialog } from './components/AiDialog'
+import { SlideImportDialog } from './components/SlideImportDialog'
 import { Toasts } from './components/Toasts'
 import { Confetti } from './components/Confetti'
 import { FormattingToolbar } from './components/editor/FormattingToolbar'
@@ -169,6 +170,7 @@ export default function App() {
       <TemplatesDialog />
       <ShareDialog />
       <AiDialog />
+      <SlideImportDialog />
       <Toasts />
       <Confetti />
       <FormattingToolbar />

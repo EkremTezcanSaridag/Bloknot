@@ -70,7 +70,7 @@ export interface Toast {
   tone: 'default' | 'success' | 'danger'
 }
 
-export type DialogName = 'settings' | 'templates' | 'share' | 'ai' | null
+export type DialogName = 'settings' | 'templates' | 'share' | 'ai' | 'slides' | null
 
 export interface Snapshot {
   id: string

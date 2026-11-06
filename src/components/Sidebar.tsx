@@ -5,6 +5,7 @@ import {
   Hash,
   Moon,
   Plus,
+  Presentation,
   RotateCcw,
   Search,
   Settings,
@@ -118,6 +119,15 @@ export function Sidebar() {
           <span className="ml-auto hidden rounded-md bg-black/10 px-1.5 py-0.5 text-[0.65rem] font-bold opacity-70 sm:inline">
             yeni
           </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => openDialog('slides')}
+          className="mt-2 flex w-full items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-extrabold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+        >
+          <Presentation className="size-4" />
+          Slayttan not
         </button>
       </div>
 
