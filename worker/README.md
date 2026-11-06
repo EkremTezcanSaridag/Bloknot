@@ -21,16 +21,11 @@ Bu klasörde (`Bloknot/worker`) terminal aç:
 
 ```bash
 npx wrangler login
+npx wrangler deploy
 npx wrangler secret put GROQ_API_KEY
 ```
 
-İkinci komut Groq anahtarını soracak. [console.groq.com/keys](https://console.groq.com/keys) üzerinden oluşturduğun anahtarı yapıştır. Anahtar repoya yazılmaz, yalnızca Cloudflare'de saklanır.
-
-Sonra yayınla:
-
-```bash
-npx wrangler deploy
-```
+`wrangler deploy` Worker'ı oluşturur ve `https://bloknot-groq.<hesap-adın>.workers.dev` adresini verir. Ardından `secret put` Groq anahtarını soracak. [console.groq.com/keys](https://console.groq.com/keys) üzerinden oluşturduğun anahtarı yapıştır. Anahtar repoya yazılmaz, yalnızca Cloudflare'de saklanır. Secret eklendiğinde Worker otomatik güncellenir; tekrar deploy etmen gerekmez.
 
 Çıktıda şuna benzer bir adres göreceksin:
 

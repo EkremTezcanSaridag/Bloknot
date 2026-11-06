@@ -2,10 +2,14 @@ import type { AiProvider } from '../types'
 
 /**
  * Paylaşımlı Groq proxy'si. Cloudflare Worker adresi build sırasında
- * VITE_GROQ_PROXY_URL ortam değişkeninden okunur. Boşsa uygulama doğrudan
- * Groq bağlantısına (kullanıcı kendi anahtarını girer) düşer.
+ * VITE_GROQ_PROXY_URL ortam değişkeninden okunur. GitHub Actions değişkeni
+ * tanımlı değilse buradaki herkese açık Worker adresine düşer.
  */
-export const SHARED_GROQ_PROXY_URL = (import.meta.env.VITE_GROQ_PROXY_URL ?? '')
+const FALLBACK_SHARED_GROQ_PROXY_URL = 'https://bloknot-groq.ets123main.workers.dev'
+
+export const SHARED_GROQ_PROXY_URL = (
+  import.meta.env.VITE_GROQ_PROXY_URL || FALLBACK_SHARED_GROQ_PROXY_URL
+)
   .trim()
   .replace(/\/+$/, '')
 
