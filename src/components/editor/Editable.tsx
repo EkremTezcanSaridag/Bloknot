@@ -178,6 +178,8 @@ export function Editable({
           const match = SHORTCUTS.find(([pattern]) => pattern.test(before))
           if (match) {
             event.preventDefault()
+            element.innerHTML = ''
+            onChange('')
             onShortcut(match[1])
           }
         }
