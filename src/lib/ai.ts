@@ -9,7 +9,6 @@ export type AiActionId =
   | 'format'
   | 'ideas'
   | 'diagram'
-  | 'image'
   | 'custom'
 
 export interface AiProviderPreset {
@@ -269,17 +268,6 @@ export function mermaidInkUrl(code: string): string {
   return `https://mermaid.ink/svg/${base64}?bgColor=ffffff`
 }
 
-/** Pollinations ile anahtarsız, ücretsiz görsel üretir. */
-export function pollinationsUrl(prompt: string, width = 1024, height = 768, seed = Date.now()): string {
-  const cleaned = prompt.trim().slice(0, 1200)
-  // Pollinations tohumu 32 bit işaretli tam sayı bekliyor.
-  const safeSeed = Math.abs(Math.trunc(seed)) % 2_147_483_647
-  return (
-    `https://image.pollinations.ai/prompt/${encodeURIComponent(cleaned)}` +
-    `?width=${width}&height=${height}&nologo=true&model=flux&seed=${safeSeed}`
-  )
-}
-
 /** Harici görseli IndexedDB'de saklanabilen bir data URL'ye çevirir. */
 export async function urlToDataUrl(url: string): Promise<string> {
   const controller = new AbortController()
@@ -346,8 +334,6 @@ export function buildPrompt(
         'Uygun olduğunda flowchart TD kullan ve etiketleri Türkçe yaz.' +
         `${noteSection}${extra}`
       )
-    case 'image':
-      return userPrompt.trim() || (note ? `Notun konusunu anlatan yaratıcı bir görsel: ${note.title}` : '')
     case 'custom':
       return `${userPrompt.trim() || 'Bu not hakkında bana yardım et.'}${noteSection}`
     default:

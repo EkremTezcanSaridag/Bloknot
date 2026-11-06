@@ -14,7 +14,7 @@ Bloknot, tarayıcında çalışan; hesap açmadan kullanabileceğin, blok tabanl
 - **Bağlantıyla paylaşım.** Notu URL'ye sıkıştırıp salt okunur bağlantı olarak gönder; karşı taraf tek tıkla kendi defterine kopyalasın.
 - **Yedekleme.** JSON yedeği indir/geri yükle, Markdown içe/dışa aktar, son 5 anlık yedeği geri döndür.
 - **Tema ve vurgu rengi.** Açık/koyu/sistem teması ve beş farklı vurgu rengi.
-- **AI asistan.** Notunu düzelt, özetle, şekillendir; Mermaid şeması veya anahtarsız AI görseli ekle. Groq, OpenRouter, xAI ve OpenAI uyumlu uç noktalar desteklenir.
+- **AI asistan.** Notunu düzelt, özetle, şekillendir veya Mermaid şemasına çevir. Groq, OpenRouter, xAI ve OpenAI uyumlu uç noktalar desteklenir.
 - **Küçük mutluluklar.** Yapılacak işi tamamlayınca konfeti, hafif arayüz sesleri, ilham soruları.
 - **Çevrimdışı PWA.** Ana ekrana ekle, internet olmadan da yaz.
 - **Mobil uyumlu.** Telefonda da rahat kullanılır.
@@ -55,7 +55,7 @@ Metinde seçim yapınca açılan biçimlendirme çubuğundan yazı **puntosunu**
 
 ## AI Asistan
 
-Sağ üstteki **AI** düğmesiyle notunu düzeltebilir, özetleyebilir, başlık/listelere bölebilir, fikir üretebilir, Mermaid şeması çizebilir veya anahtarsız AI görseli üretebilirsin. Sonuçları nota ekleyebilir ya da notun tamamını değiştirebilirsin. Ayrıca her bloğun sağ üstünde beliren **✨ AI** düğmesiyle o bloğa özel istem yazabilirsin: boş bir blokta “AI hakkında bir başlık aç ve alt başlıklarda açıklama yap” gibi bir istemle başlık, alt başlık ve açıklama blokları üretebilir; dolu bir blokta **Düzelt** ile blok türünü koruyarak yazımı düzelttirebilir veya **Oluştur** ile çok bloklu yeni içerik hazırlayabilirsin. AI sonucu değiştirilmiş bir bloğa uygulanmaz; önce önizlersin.
+Sağ üstteki **AI** düğmesiyle notunu düzeltebilir, özetleyebilir, başlık/listelere bölebilir, fikir üretebilir, Mermaid şeması çizebilirsin. Sonuçları nota ekleyebilir ya da notun tamamını değiştirebilirsin. Ayrıca her bloğun sağ üstünde beliren **✨ AI** düğmesiyle o bloğa özel istem yazabilirsin: boş bir blokta “AI hakkında bir başlık aç ve alt başlıklarda açıklama yap” gibi bir istemle başlık, alt başlık ve açıklama blokları üretebilir; dolu bir blokta **Düzelt** ile blok türünü koruyarak yazımı düzelttirebilir veya **Oluştur** ile çok bloklu yeni içerik hazırlayabilirsin. AI sonucu değiştirilmiş bir bloğa uygulanmaz; önce önizlersin.
 
 **Paylaşımlı anahtar (herkes için tek anahtar):**
 
@@ -67,7 +67,7 @@ Siteyi kullanan herkesin anahtar girmesini istemiyorsan Groq anahtarını Cloudf
 2. AI panelinde sağlayıcı olarak **Groq (kendi anahtarım)** seç. Varsayılan model `openai/gpt-oss-120b`.
 3. Anahtarı **API anahtarı** alanına yapıştır. İstekler tarayıcıdan doğrudan `api.groq.com` adresine gider.
 
-Alternatif olarak **OpenRouter**, **xAI** veya OpenAI uyumlu özel bir uç nokta da seçebilirsin. Groq metin üretir; AI görselleri Groq yerine anahtarsız Pollinations servisiyle oluşturulur. Şemalar Mermaid kodu olarak üretilip görsele çevrilir.
+Alternatif olarak **OpenRouter**, **xAI** veya OpenAI uyumlu özel bir uç nokta da seçebilirsin. Groq metin üretir; şemalar Mermaid kodu olarak üretilip görsele çevrilir.
 
 Kendi anahtarların varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu cihazda hatırla" ile localStorage'a kaydedebilirsin. Paylaşımlı modda anahtar tarayıcıya hiç inmez; Cloudflare Worker'da kalır.
 

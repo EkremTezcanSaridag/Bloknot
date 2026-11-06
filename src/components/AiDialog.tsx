@@ -8,7 +8,6 @@ import {
   Eye,
   EyeOff,
   GitBranch,
-  ImagePlus,
   KeyRound,
   Lightbulb,
   ListChecks,
@@ -31,8 +30,6 @@ import {
   defaultSystemPrompt,
   extractMermaid,
   mermaidInkUrl,
-  pollinationsUrl,
-  urlToDataUrl,
   type AiActionId,
 } from '../lib/ai'
 import { getAiKey, hasRememberedAiKey, saveAiKey } from '../lib/aiKey'
@@ -78,12 +75,6 @@ const ACTIONS: ActionPreset[] = [
     icon: GitBranch,
   },
   {
-    id: 'image',
-    label: 'Görsel',
-    description: 'Anahtarsız AI görseli üret',
-    icon: ImagePlus,
-  },
-  {
     id: 'custom',
     label: 'Serbest',
     description: 'Kendi isteğini yaz',
@@ -126,13 +117,9 @@ export function AiDialog() {
   const [result, setResult] = useState('')
   const [diagramCode, setDiagramCode] = useState('')
   const [diagramUrl, setDiagramUrl] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [imageDataUrl, setImageDataUrl] = useState('')
-  const [imageLoading, setImageLoading] = useState(false)
 
   const selected = ACTIONS.find((item) => item.id === action) ?? ACTIONS[0]
   const provider = AI_PROVIDERS[settings.aiProvider] ?? AI_PROVIDERS.groq
-  const isImage = action === 'image'
   const isDiagram = action === 'diagram'
 
   useEffect(() => {
@@ -150,9 +137,6 @@ export function AiDialog() {
     setResult('')
     setDiagramCode('')
     setDiagramUrl('')
-    setImageUrl('')
-    setImageDataUrl('')
-    setImageLoading(false)
     setError('')
     setLoading(false)
     setInserting(false)
@@ -163,9 +147,6 @@ export function AiDialog() {
     setResult('')
     setDiagramCode('')
     setDiagramUrl('')
-    setImageUrl('')
-    setImageDataUrl('')
-    setImageLoading(false)
     setError('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note?.id])
@@ -199,25 +180,6 @@ export function AiDialog() {
     setResult('')
     setDiagramCode('')
     setDiagramUrl('')
-    setImageUrl('')
-    setImageDataUrl('')
-    setImageLoading(false)
-
-    if (isImage) {
-      const description =
-        prompt.trim() || `${note.title || 'Not'} hakkında yaratıcı bir illüstrasyon`
-      setImageLoading(true)
-      try {
-        const dataUrl = await urlToDataUrl(pollinationsUrl(description))
-        setImageDataUrl(dataUrl)
-        setImageUrl(dataUrl)
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Görsel üretilemedi. Tekrar dene.')
-      } finally {
-        setImageLoading(false)
-      }
-      return
-    }
 
     if (!settings.aiBaseUrl.trim()) {
       setShowConfig(true)
@@ -315,36 +277,30 @@ export function AiDialog() {
     closeDialog()
   }
 
-  const insertVisual = async (src: string, caption: string, convert = true) => {
+  const insertDiagram = async (src: string, caption: string) => {
     if (!note) return
     setInserting(true)
     try {
-      const finalSrc = convert ? await bestEffortDataUrl(src) : src
+      const finalSrc = await bestEffortDataUrl(src)
       addBlock(note.id, { type: 'image', src: finalSrc, caption })
-      pushToast('Görsel nota eklendi.', 'success')
+      pushToast('Şema nota eklendi.', 'success')
       closeDialog()
     } catch {
-      setError('Görsel nota eklenemedi. Tekrar dene.')
+      setError('Şema nota eklenemedi. Tekrar dene.')
     } finally {
       setInserting(false)
     }
   }
 
-  const canRun = Boolean(note) && !loading && !imageLoading && !inserting
-  const runLabel = loading
-    ? 'Çalışıyor…'
-    : imageLoading
-      ? 'Görsel hazırlanıyor…'
-      : isImage
-        ? 'Görsel oluştur'
-        : 'AI ile çalıştır'
+  const canRun = Boolean(note) && !loading && !inserting
+  const runLabel = loading ? 'Çalışıyor…' : 'AI ile çalıştır'
 
   return (
     <Modal
       open={dialog === 'ai'}
       onClose={closeDialog}
       title="AI Asistan"
-      subtitle="Notlarını düzelt, şekillendir, görselleştir."
+      subtitle="Notlarını düzelt, özetle, şekillendir veya şemaya çevir."
       size="lg"
       footer={
         <div className="flex items-center justify-between gap-3 text-[0.68rem] font-semibold text-[var(--text-faint)]">
@@ -544,9 +500,6 @@ export function AiDialog() {
                   setResult('')
                   setDiagramCode('')
                   setDiagramUrl('')
-                  setImageUrl('')
-                  setImageDataUrl('')
-                  setImageLoading(false)
                 }}
                 aria-pressed={active}
                 className={`group flex min-h-[64px] flex-col items-start gap-1 rounded-xl border p-2.5 text-left transition ${
@@ -576,17 +529,15 @@ export function AiDialog() {
                 {note.blocks.length} blok
               </span>
             </div>
-            {!isImage && (
-              <label className="mt-2.5 inline-flex cursor-pointer items-center gap-2 text-[0.7rem] font-semibold text-[var(--text-soft)]">
-                <input
-                  type="checkbox"
-                  checked={includeNote}
-                  onChange={(event) => setIncludeNote(event.target.checked)}
-                  className="size-4 accent-[var(--accent)]"
-                />
-                Notu bağlam olarak gönder
-              </label>
-            )}
+            <label className="mt-2.5 inline-flex cursor-pointer items-center gap-2 text-[0.7rem] font-semibold text-[var(--text-soft)]">
+              <input
+                type="checkbox"
+                checked={includeNote}
+                onChange={(event) => setIncludeNote(event.target.checked)}
+                className="size-4 accent-[var(--accent)]"
+              />
+              Notu bağlam olarak gönder
+            </label>
           </div>
         ) : (
           <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
@@ -599,11 +550,7 @@ export function AiDialog() {
             htmlFor="ai-prompt"
             className="mb-1.5 block text-[0.68rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]"
           >
-            {action === 'custom'
-              ? 'AI’ya ne yapmasını istersin?'
-              : isImage
-                ? 'Görsel tarifi'
-                : 'Ek istek (isteğe bağlı)'}
+            {action === 'custom' ? 'AI’ya ne yapmasını istersin?' : 'Ek istek (isteğe bağlı)'}
           </label>
           <textarea
             id="ai-prompt"
@@ -611,11 +558,9 @@ export function AiDialog() {
             onChange={(event) => setPrompt(event.target.value)}
             rows={3}
             placeholder={
-              isImage
-                ? 'Örn. pastel renklerde, ay ışığında uyuyan bir tilki illüstrasyonu'
-                : action === 'custom'
-                  ? 'Örn. Bu notu 3 maddelik bir eylem planına çevir.'
-                  : `${selected.label}: ${selected.description}. İstersen ek bir yön verebilirsin.`
+              action === 'custom'
+                ? 'Örn. Bu notu 3 maddelik bir eylem planına çevir.'
+                : `${selected.label}: ${selected.description}. İstersen ek bir yön verebilirsin.`
             }
             className={`${inputClass} min-h-[84px] resize-y leading-relaxed`}
           />
@@ -630,17 +575,11 @@ export function AiDialog() {
 
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => void run()} disabled={!canRun} className={primaryButtonClass}>
-            {loading || imageLoading ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : isImage ? (
-              <ImagePlus className="size-4" />
-            ) : (
-              <Wand2 className="size-4" />
-            )}
+            {loading ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
             {runLabel}
           </button>
 
-          {(result || imageUrl) && !loading && (
+          {result && !loading && (
             <button type="button" onClick={() => void run()} className={secondaryButtonClass}>
               <RefreshCw className="size-3.5" />
               Yeniden dene
@@ -664,7 +603,7 @@ export function AiDialog() {
           </div>
         )}
 
-        {!loading && result && action !== 'image' && !isDiagram && (
+        {!loading && result && !isDiagram && (
           <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
             <header className="flex items-center justify-between gap-2 border-b border-[var(--border)] px-3.5 py-2.5">
               <span className="inline-flex items-center gap-1.5 text-xs font-extrabold">
@@ -722,7 +661,7 @@ export function AiDialog() {
             <footer className="flex flex-wrap gap-2 border-t border-[var(--border)] bg-[var(--surface-2)]/50 px-3.5 py-2.5">
               <button
                 type="button"
-                onClick={() => void insertVisual(diagramUrl, 'AI şeması')}
+                onClick={() => void insertDiagram(diagramUrl, 'AI şeması')}
                 disabled={inserting}
                 className={primaryButtonClass}
               >
@@ -733,65 +672,14 @@ export function AiDialog() {
           </section>
         )}
 
-        {!loading && isImage && imageUrl && (
-          <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-            <header className="flex items-center justify-between gap-2 border-b border-[var(--border)] px-3.5 py-2.5">
-              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold">
-                <ImagePlus className="size-3.5 text-[var(--accent-strong)]" />
-                AI görseli
-              </span>
-              <span className="text-[0.68rem] font-semibold text-[var(--text-faint)]">
-                Pollinations · anahtarsız
-              </span>
-            </header>
-            <div className="relative grid min-h-48 place-items-center bg-[var(--surface-2)]">
-              {imageLoading && (
-                <div className="absolute inset-0 z-10 grid place-items-center bg-[var(--surface-2)]/85">
-                  <div className="flex flex-col items-center gap-2 text-xs font-bold text-[var(--text-soft)]">
-                    <Loader2 className="size-6 animate-spin text-[var(--accent-strong)]" />
-                    Görsel hazırlanıyor…
-                  </div>
-                </div>
-              )}
-              <img
-                src={imageUrl}
-                alt="AI tarafından oluşturulan görsel"
-                className="max-h-80 w-auto max-w-full"
-                onLoad={() => setImageLoading(false)}
-                onError={() => {
-                  setImageLoading(false)
-                  setError('Görsel üretilemedi. Tarifi değiştirip tekrar dene.')
-                }}
-              />
-            </div>
-            <footer className="flex flex-wrap gap-2 border-t border-[var(--border)] bg-[var(--surface-2)]/50 px-3.5 py-2.5">
-              <button
-                type="button"
-                onClick={() =>
-                  void insertVisual(
-                    imageDataUrl || imageUrl,
-                    prompt.trim().slice(0, 120) || 'AI görseli',
-                    false,
-                  )
-                }
-                disabled={inserting || imageLoading}
-                className={primaryButtonClass}
-              >
-                {inserting ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                Görseli nota ekle
-              </button>
-            </footer>
-          </section>
-        )}
-
-        {!result && !imageUrl && !loading && (
+        {!result && !loading && (
           <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--surface)]/50 px-4 py-5 text-center">
             <Sparkles className="mx-auto size-5 text-[var(--accent-strong)]" />
             <p className="mt-1.5 text-xs font-bold text-[var(--text-soft)]">
               Bir işlem seç, AI notunla çalışsın.
             </p>
             <p className="mt-0.5 text-[0.68rem] font-semibold text-[var(--text-faint)]">
-              Düzelt · özetle · şekillendir · şema çiz · görsel üret
+              Düzelt · özetle · şekillendir · fikir ver · şema çiz
             </p>
           </div>
         )}

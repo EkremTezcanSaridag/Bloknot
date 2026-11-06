@@ -237,7 +237,7 @@ export function SettingsDialog() {
               <div>
                 <p className="text-sm font-extrabold">Groq / OpenRouter ile çalış</p>
                 <p className="mt-0.5 max-w-md text-xs font-semibold leading-relaxed text-[var(--text-faint)]">
-                  Notlarını düzelt, özetle, şemaya çevir veya görsel üret. Paylaşımlı anahtar
+                  Notlarını düzelt, özetle, şekillendir veya şemaya çevir. Paylaşımlı anahtar
                   hazırsa anahtar girmeden kullan; istersen kendi Groq, OpenRouter, xAI veya
                   OpenAI anahtarını gir.
                 </p>
