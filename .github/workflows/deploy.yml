@@ -35,6 +35,8 @@ jobs:
 
       - name: Üretim derlemesi
         run: npm run build
+        env:
+          VITE_GROQ_PROXY_URL: ${{ vars.VITE_GROQ_PROXY_URL }}
 
       - name: Pages artifaktını yükle
         uses: actions/upload-pages-artifact@v3

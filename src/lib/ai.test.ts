@@ -78,6 +78,13 @@ describe('sağlayıcılar', () => {
     expect(groq.baseUrl).toBe('https://api.groq.com/openai/v1')
     expect(groq.requiresKey).toBe(true)
   })
+
+  it('paylaşımlı Groq sağlayıcısı anahtar istemez', () => {
+    const shared = AI_PROVIDERS['groq-proxy']
+    expect(shared.shared).toBe(true)
+    expect(shared.requiresKey).toBe(false)
+    expect(shared.model).toBe('openai/gpt-oss-120b')
+  })
 })
 
 describe('istek üretimi', () => {

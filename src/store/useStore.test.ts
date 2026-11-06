@@ -1,16 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useStore } from './useStore'
+import {
+  DEFAULT_AI_BASE_URL,
+  DEFAULT_AI_MODEL,
+  DEFAULT_AI_PROVIDER,
+} from '../lib/aiConfig'
 
 beforeEach(() => {
   useStore.getState().resetAll()
 })
 
 describe('ayarlar', () => {
-  it('varsayılan AI sağlayıcısı Groq olur', () => {
+  it('varsayılan AI sağlayıcısını ortam ayarına göre seçer', () => {
     const settings = useStore.getState().settings
-    expect(settings.aiProvider).toBe('groq')
-    expect(settings.aiBaseUrl).toBe('https://api.groq.com/openai/v1')
-    expect(settings.aiModel).toBe('openai/gpt-oss-120b')
+    expect(settings.aiProvider).toBe(DEFAULT_AI_PROVIDER)
+    expect(settings.aiBaseUrl).toBe(DEFAULT_AI_BASE_URL)
+    expect(settings.aiModel).toBe(DEFAULT_AI_MODEL)
   })
 })
 

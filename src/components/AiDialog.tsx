@@ -221,7 +221,11 @@ export function AiDialog() {
 
     if (!settings.aiBaseUrl.trim()) {
       setShowConfig(true)
-      setError('Sunucu adresi boş. Bağlantı ayarlarından bir adres gir.')
+      setError(
+        provider.shared
+          ? 'Paylaşımlı proxy adresi tanımlı değil. Yönetici VITE_GROQ_PROXY_URL değişkenini ayarlamalı.'
+          : 'Sunucu adresi boş. Bağlantı ayarlarından bir adres gir.',
+      )
       return
     }
 
@@ -346,7 +350,9 @@ export function AiDialog() {
         <div className="flex items-center justify-between gap-3 text-[0.68rem] font-semibold text-[var(--text-faint)]">
           <span className="inline-flex items-center gap-1.5">
             <ShieldCheck className="size-3.5" />
-            Anahtarın yalnızca bu tarayıcıda kalır.
+            {provider.shared
+              ? 'Anahtar sunucuda saklanır, tarayıcıya inmez.'
+              : 'Anahtarın yalnızca bu tarayıcıda kalır.'}
           </span>
           <span className="hidden sm:inline">AI çıktılarını kontrol etmeyi unutma.</span>
         </div>
@@ -359,7 +365,9 @@ export function AiDialog() {
               <Sparkles className="size-4.5" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-extrabold">{provider.label} ile bağlan</p>
+              <p className="text-sm font-extrabold">
+                {provider.shared ? 'Paylaşımlı anahtar hazır' : `${provider.label} ile bağlan`}
+              </p>
               <p className="truncate text-xs font-semibold text-[var(--text-soft)]">
                 {settings.aiModel || 'Model seçilmedi'}
               </p>
@@ -404,77 +412,105 @@ export function AiDialog() {
                     onChange={(event) => updateSettings({ aiModel: event.target.value })}
                     placeholder={provider.model || 'model-adı'}
                     spellCheck={false}
-                    className={inputClass}
+                    readOnly={provider.shared}
+                    className={`${inputClass} ${provider.shared ? 'opacity-70' : ''}`}
                   />
                 </label>
               </div>
 
-              <label className="block">
-                <span className="mb-1 block text-[0.68rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
-                  Sunucu adresi
-                </span>
-                <input
-                  value={settings.aiBaseUrl}
-                  onChange={(event) => updateSettings({ aiBaseUrl: event.target.value })}
-                  placeholder={provider.baseUrl || 'https://...'}
-                  spellCheck={false}
-                  className={inputClass}
-                />
-              </label>
+              {provider.shared ? (
+                settings.aiBaseUrl.trim() ? (
+                  <div className="rounded-xl border border-emerald-300/60 bg-emerald-50 px-3 py-2.5 text-[0.7rem] font-semibold leading-relaxed text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    <p className="flex items-start gap-1.5">
+                      <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
+                      <span>
+                        Paylaşımlı Groq anahtarı kullanılıyor. Anahtar Cloudflare proxy’sinde
+                        saklanır; tarayıcıya hiç inmez. Ayrıca anahtar girmene gerek yok.
+                      </span>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-[0.7rem] font-semibold leading-relaxed text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                    <p className="flex items-start gap-1.5">
+                      <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                      <span>
+                        Paylaşımlı proxy adresi tanımlı değil. Yönetici{' '}
+                        <code className="font-mono">VITE_GROQ_PROXY_URL</code> değişkenini
+                        ayarlamalı veya kendi Groq anahtarını kullanmalı.
+                      </span>
+                    </p>
+                  </div>
+                )
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="mb-1 block text-[0.68rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                      Sunucu adresi
+                    </span>
+                    <input
+                      value={settings.aiBaseUrl}
+                      onChange={(event) => updateSettings({ aiBaseUrl: event.target.value })}
+                      placeholder={provider.baseUrl || 'https://...'}
+                      spellCheck={false}
+                      className={inputClass}
+                    />
+                  </label>
 
-              <label className="block">
-                <span className="mb-1 block text-[0.68rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
-                  API anahtarı
-                </span>
-                <span className="relative block">
-                  <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-faint)]" />
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(event) => updateKey(event.target.value)}
-                    placeholder={provider.id === 'groq' ? 'gsk_…' : 'sk-…'}
-                    autoComplete="off"
-                    spellCheck={false}
-                    className={`${inputClass} pl-9 pr-10`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((value) => !value)}
-                    className="absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
-                    aria-label={showKey ? 'Anahtarı gizle' : 'Anahtarı göster'}
-                  >
-                    {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </span>
-              </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[0.68rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                      API anahtarı
+                    </span>
+                    <span className="relative block">
+                      <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-faint)]" />
+                      <input
+                        type={showKey ? 'text' : 'password'}
+                        value={apiKey}
+                        onChange={(event) => updateKey(event.target.value)}
+                        placeholder={provider.id === 'groq' ? 'gsk_…' : 'sk-…'}
+                        autoComplete="off"
+                        spellCheck={false}
+                        className={`${inputClass} pl-9 pr-10`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowKey((value) => !value)}
+                        className="absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                        aria-label={showKey ? 'Anahtarı gizle' : 'Anahtarı göster'}
+                      >
+                        {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </span>
+                  </label>
 
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-[var(--text-soft)]">
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(event) => toggleRemember(event.target.checked)}
-                    className="size-4 accent-[var(--accent)]"
-                  />
-                  Bu cihazda hatırla
-                </label>
-                {provider.keyUrl && (
-                  <a
-                    href={provider.keyUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-1 text-xs font-extrabold text-[var(--accent-strong)] underline decoration-dotted underline-offset-4"
-                  >
-                    {provider.id === 'groq' ? 'Groq anahtarı' : 'Anahtar al'}
-                    <ExternalLink className="size-3" />
-                  </a>
-                )}
-              </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-[var(--text-soft)]">
+                      <input
+                        type="checkbox"
+                        checked={remember}
+                        onChange={(event) => toggleRemember(event.target.checked)}
+                        className="size-4 accent-[var(--accent)]"
+                      />
+                      Bu cihazda hatırla
+                    </label>
+                    {provider.keyUrl && (
+                      <a
+                        href={provider.keyUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="inline-flex items-center gap-1 text-xs font-extrabold text-[var(--accent-strong)] underline decoration-dotted underline-offset-4"
+                      >
+                        {provider.id === 'groq' ? 'Groq anahtarı' : 'Anahtar al'}
+                        <ExternalLink className="size-3" />
+                      </a>
+                    )}
+                  </div>
 
-              <p className="rounded-xl bg-[var(--surface-2)] px-3 py-2 text-[0.7rem] font-semibold leading-relaxed text-[var(--text-soft)]">
-                İstek doğrudan {provider.label} sunucusuna gider. Groq tarayıcıdan doğrudan
-                çalışır. Anahtar yalnızca bu tarayıcıda saklanır.
-              </p>
+                  <p className="rounded-xl bg-[var(--surface-2)] px-3 py-2 text-[0.7rem] font-semibold leading-relaxed text-[var(--text-soft)]">
+                    İstek doğrudan {provider.label} sunucusuna gider. Groq tarayıcıdan doğrudan
+                    çalışır. Anahtar yalnızca bu tarayıcıda saklanır.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </section>

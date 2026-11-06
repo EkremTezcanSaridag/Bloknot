@@ -1,5 +1,6 @@
 import type { AiProvider, Note } from '../types'
 import { noteToMarkdown } from './markdown'
+import { SHARED_GROQ_MODEL, SHARED_GROQ_PROXY_URL } from './aiConfig'
 
 export type AiActionId =
   | 'improve'
@@ -18,13 +19,24 @@ export interface AiProviderPreset {
   model: string
   keyUrl: string
   requiresKey?: boolean
+  shared?: boolean
 }
 
 export const AI_PROVIDERS: Record<AiProvider, AiProviderPreset> = {
+  'groq-proxy': {
+    id: 'groq-proxy',
+    label: 'Groq (paylaşımlı)',
+    description: 'Tek anahtar sunucuda saklanır. Anahtar girmene gerek yok.',
+    baseUrl: SHARED_GROQ_PROXY_URL,
+    model: SHARED_GROQ_MODEL,
+    keyUrl: '',
+    requiresKey: false,
+    shared: true,
+  },
   groq: {
     id: 'groq',
-    label: 'Groq',
-    description: 'GroqCloud’un hızlı açık modelleri. Tarayıcıdan doğrudan çalışır.',
+    label: 'Groq (kendi anahtarım)',
+    description: 'Kendi Groq anahtarınla tarayıcıdan doğrudan bağlan.',
     baseUrl: 'https://api.groq.com/openai/v1',
     model: 'openai/gpt-oss-120b',
     keyUrl: 'https://console.groq.com/keys',

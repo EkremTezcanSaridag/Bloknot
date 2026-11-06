@@ -43,7 +43,13 @@ export type ThemeMode = 'light' | 'dark' | 'system'
 
 export type AccentId = 'lavanta' | 'okyanus' | 'orman' | 'gunbatimi' | 'kiraz'
 
-export type AiProvider = 'groq' | 'openrouter' | 'xai' | 'openai' | 'custom'
+export type AiProvider =
+  | 'groq'
+  | 'groq-proxy'
+  | 'openrouter'
+  | 'xai'
+  | 'openai'
+  | 'custom'
 
 export interface Settings {
   theme: ThemeMode

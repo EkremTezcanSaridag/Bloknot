@@ -55,15 +55,19 @@ Paylaşım bağlantılarında not içeriği sıkıştırılmış olarak URL'nin 
 
 Sağ üstteki **AI** düğmesiyle notunu düzeltebilir, özetleyebilir, başlık/listelere bölebilir, fikir üretebilir, Mermaid şeması çizebilir veya anahtarsız AI görseli üretebilirsin. Sonuçları nota ekleyebilir ya da notun tamamını değiştirebilirsin.
 
-**Groq ile başlamak (önerilen):**
+**Paylaşımlı anahtar (herkes için tek anahtar):**
+
+Siteyi kullanan herkesin anahtar girmesini istemiyorsan Groq anahtarını Cloudflare Worker'da sakla. Worker adresini `VITE_GROQ_PROXY_URL` olarak tanımladığında uygulama otomatik olarak **Groq (paylaşımlı)** sağlayıcısını kullanır; ziyaretçiler anahtar görmez. Kurulum: [worker/README.md](worker/README.md).
+
+**Kendi anahtarınla doğrudan Groq:**
 
 1. [console.groq.com/keys](https://console.groq.com/keys) üzerinden ücretsiz bir Groq API anahtarı oluştur.
-2. AI panelinde sağlayıcı olarak **Groq**'u seç. Varsayılan model `openai/gpt-oss-120b`.
-3. Anahtarı **API anahtarı** alanına yapıştır. İstekler tarayıcıdan doğrudan `api.groq.com` adresine gider; ayrı bir sunucu/proxy gerekmez.
+2. AI panelinde sağlayıcı olarak **Groq (kendi anahtarım)** seç. Varsayılan model `openai/gpt-oss-120b`.
+3. Anahtarı **API anahtarı** alanına yapıştır. İstekler tarayıcıdan doğrudan `api.groq.com` adresine gider.
 
 Alternatif olarak **OpenRouter**, **xAI** veya OpenAI uyumlu özel bir uç nokta da seçebilirsin. Groq metin üretir; AI görselleri Groq yerine anahtarsız Pollinations servisiyle oluşturulur. Şemalar Mermaid kodu olarak üretilip görsele çevrilir.
 
-AI anahtarları varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu cihazda hatırla" ile localStorage'a kaydedebilirsin. Anahtarlar hiçbir sunucuya gönderilmez; yalnızca seçtiğin sağlayıcıya gider.
+Kendi anahtarların varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu cihazda hatırla" ile localStorage'a kaydedebilirsin. Paylaşımlı modda anahtar tarayıcıya hiç inmez; Cloudflare Worker'da kalır.
 
 ## GitHub Pages'e yayınlama
 

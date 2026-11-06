@@ -6,6 +6,11 @@ import { newBlock } from '../lib/markdown'
 import { sanitizeHtml } from '../lib/sanitize'
 import { createSeedNotes } from '../lib/seed'
 import { appStorage } from '../lib/storage'
+import {
+  DEFAULT_AI_BASE_URL,
+  DEFAULT_AI_MODEL,
+  DEFAULT_AI_PROVIDER,
+} from '../lib/aiConfig'
 
 export type FilterKind = 'all' | 'favorites' | 'trash' | 'tag'
 
@@ -90,9 +95,9 @@ const DEFAULT_SETTINGS: Settings = {
   compact: false,
   lastBackupAt: null,
   welcomeSeen: false,
-  aiProvider: 'groq',
-  aiBaseUrl: 'https://api.groq.com/openai/v1',
-  aiModel: 'openai/gpt-oss-120b',
+  aiProvider: DEFAULT_AI_PROVIDER,
+  aiBaseUrl: DEFAULT_AI_BASE_URL,
+  aiModel: DEFAULT_AI_MODEL,
 }
 
 const BLOCK_TYPES = new Set<BlockType>([
