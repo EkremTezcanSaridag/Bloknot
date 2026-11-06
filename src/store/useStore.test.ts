@@ -1,0 +1,84 @@
+import { beforeEach, describe, expect, it } from 'vitest'
+import { useStore } from './useStore'
+
+beforeEach(() => {
+  useStore.getState().resetAll()
+})
+
+describe('not işlemleri', () => {
+  it('not oluşturur ve aktif not yapar', () => {
+    const id = useStore.getState().createNote({ title: 'Deneme', tags: ['#fikir', 'fikir'] })
+    const state = useStore.getState()
+
+    expect(state.notes).toHaveLength(1)
+    expect(state.activeNoteId).toBe(id)
+    expect(state.notes[0].title).toBe('Deneme')
+    expect(state.notes[0].tags).toEqual(['fikir'])
+    expect(state.notes[0].blocks[0].type).toBe('paragraph')
+  })
+
+  it('blok ekler, günceller ve sıralar', () => {
+    const id = useStore.getState().createNote({ title: 'Bloklar' })
+    const first = useStore.getState().notes[0].blocks[0]
+    const secondId = useStore.getState().addBlock(id, { type: 'heading2', html: 'Başlık' }, first.id)
+
+    let blocks = useStore.getState().notes[0].blocks
+    expect(blocks.map((block) => block.type)).toEqual(['paragraph', 'heading2'])
+
+    useStore.getState().updateBlock(id, secondId, { html: 'Yeni <b>başlık</b>' })
+    useStore.getState().moveBlock(id, secondId, first.id)
+
+    blocks = useStore.getState().notes[0].blocks
+    expect(blocks[0].id).toBe(secondId)
+    expect(blocks[0].html).toContain('<b>başlık</b>')
+  })
+
+  it('yapılacak durumunu değiştirir', () => {
+    const id = useStore.getState().createNote({ title: 'Görev' })
+    const block = useStore.getState().notes[0].blocks[0]
+
+    useStore.getState().updateBlock(id, block.id, { type: 'todo' })
+    useStore.getState().toggleTodo(id, block.id)
+
+    expect(useStore.getState().notes[0].blocks[0].checked).toBe(true)
+  })
+
+  it('çöpe taşır ve geri yükler', () => {
+    const id = useStore.getState().createNote({ title: 'Silinecek' })
+    useStore.getState().trashNote(id)
+
+    expect(useStore.getState().notes[0].trashedAt).toBeTypeOf('number')
+    expect(useStore.getState().activeNoteId).toBeNull()
+
+    useStore.getState().restoreNote(id)
+    expect(useStore.getState().notes[0].trashedAt).toBeUndefined()
+    expect(useStore.getState().activeNoteId).toBe(id)
+  })
+
+  it('kopya oluştururken blok kimliklerini yeniler', () => {
+    const id = useStore.getState().createNote({ title: 'Asıl' })
+    const sourceBlockId = useStore.getState().notes[0].blocks[0].id
+    const copyId = useStore.getState().duplicateNote(id)
+
+    expect(copyId).not.toBeNull()
+    const copy = useStore.getState().notes.find((note) => note.id === copyId)
+    expect(copy?.title).toBe('Asıl (kopya)')
+    expect(copy?.blocks[0].id).not.toBe(sourceBlockId)
+  })
+
+  it('içe aktarmada HTML’i temizler ve kimlik çakışmasını çözer', () => {
+    const existing = useStore.getState().createNote({ title: 'Mevcut' })
+    const incoming = {
+      ...useStore.getState().notes[0],
+      title: 'Gelen',
+      blocks: [{ id: 'x', type: 'paragraph' as const, html: '<img src=x onerror=alert(1)><b>ok</b>' }],
+    }
+
+    const count = useStore.getState().importNotes([incoming], 'merge')
+
+    expect(count).toBe(1)
+    const imported = useStore.getState().notes.find((note) => note.title === 'Gelen')
+    expect(imported?.id).not.toBe(existing)
+    expect(imported?.blocks[0].html).toBe('<b>ok</b>')
+  })
+})

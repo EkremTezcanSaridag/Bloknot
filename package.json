@@ -1,0 +1,59 @@
+{
+  "name": "bloknot",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Bloknot — tarayıcıda çalışan, eğlenceli, blok tabanlı kişisel not defteri.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "icons": "powershell -ExecutionPolicy Bypass -File scripts/generate-icons.ps1",
+    "format": "echo \"Biçimlendirme için bir araç eklenmedi\" && exit 0"
+  },
+  "keywords": [
+    "notes",
+    "notion",
+    "editor",
+    "react",
+    "pwa",
+    "offline"
+  ],
+  "author": "Ekrem Tezcan Sarıdağ",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EkremTezcanSaridag/Bloknot.git"
+  },
+  "homepage": "https://ekremtezcansaridag.github.io/Bloknot/",
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "framer-motion": "^14.10.1",
+    "lucide-react": "^1.70.0",
+    "lz-string": "^1.5.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "jsdom": "^31.0.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.0"
+  }
+}

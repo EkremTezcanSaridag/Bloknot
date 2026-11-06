@@ -1,0 +1,53 @@
+import { describe, expect, it } from 'vitest'
+import { htmlToMarkdown, htmlToText, sanitizeHtml } from './sanitize'
+
+describe('sanitizeHtml', () => {
+  it('script ve olay dinleyicilerini temizler', () => {
+    const dirty = '<script>alert(1)</script><strong onclick="alert(2)">merhaba</strong>'
+    expect(sanitizeHtml(dirty)).toBe('<strong>merhaba</strong>')
+  })
+
+  it('javascript: bağlantılarını etkisizleştirir', () => {
+    const result = sanitizeHtml('<a href="javascript:alert(1)">tıkla</a>')
+    expect(result).toBe('<a>tıkla</a>')
+  })
+
+  it('güvenli bağlantılara rel ve target ekler', () => {
+    const result = sanitizeHtml('<a href="https://example.com">örnek</a>')
+    expect(result).toContain('rel="noopener noreferrer"')
+    expect(result).toContain('target="_blank"')
+    expect(result).toContain('href="https://example.com"')
+  })
+
+  it('div ve p etiketlerini satır sonuna çevirir', () => {
+    expect(sanitizeHtml('<div>bir</div><div>iki</div>')).toBe('bir<br>iki')
+  })
+
+  it('biçimlendirme etiketlerini korur', () => {
+    expect(sanitizeHtml('<b>kalın</b> <i>italik</i> <code>kod</code>')).toBe(
+      '<b>kalın</b> <i>italik</i> <code>kod</code>',
+    )
+  })
+})
+
+describe('htmlToText', () => {
+  it('etiketleri temizler ve boşlukları toparlar', () => {
+    expect(htmlToText('<strong>merhaba</strong>   dünya<br>yeni satır')).toBe(
+      'merhaba dünya yeni satır',
+    )
+  })
+})
+
+describe('htmlToMarkdown', () => {
+  it('satır içi biçimleri markdown’a çevirir', () => {
+    expect(htmlToMarkdown('<strong>kalın</strong> ve <em>italik</em>')).toBe(
+      '**kalın** ve *italik*',
+    )
+  })
+
+  it('bağlantıları ve kodu korur', () => {
+    expect(htmlToMarkdown('<a href="https://a.co">git</a> <code>x=1</code>')).toBe(
+      '[git](https://a.co) `x=1`',
+    )
+  })
+})
