@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Note } from '../types'
-import { decodeSharedNote, encodeNote } from './share'
+import { baseUrlFor, decodeSharedNote, encodeNote } from './share'
 
 function sampleNote(): Note {
   return {
@@ -49,8 +49,52 @@ describe('encodeNote / decodeSharedNote', () => {
     expect(decoded?.cover).toBeUndefined()
   })
 
+  it('http görsel adreslerini HTTPS e yükseltir', () => {
+    const note = sampleNote()
+    note.blocks.push({
+      id: 'b3',
+      type: 'image',
+      html: '',
+      src: 'http://example.com/foto.png',
+    })
+    note.cover = { type: 'image', src: 'http://example.com/kapak.png' }
+
+    const decoded = decodeSharedNote(encodeNote(note).token)
+    expect(decoded?.blocks.find((block) => block.type === 'image')?.src).toBe(
+      'https://example.com/foto.png',
+    )
+    expect(decoded?.cover).toEqual({ type: 'image', src: 'https://example.com/kapak.png' })
+  })
+
   it('bozuk token için null döner', () => {
     expect(decodeSharedNote('bozuk-token')).toBeNull()
     expect(decodeSharedNote('')).toBeNull()
+  })
+})
+
+describe('baseUrlFor', () => {
+  it('genel adreslerde paylaşım bağlantısını HTTPS e yükseltir', () => {
+    expect(
+      baseUrlFor({
+        protocol: 'http:',
+        host: 'ekremtezcansaridag.github.io',
+        pathname: '/Bloknot/',
+      }),
+    ).toBe('https://ekremtezcansaridag.github.io/Bloknot/')
+  })
+
+  it('yerel geliştirme adreslerinde HTTP yi korur', () => {
+    expect(baseUrlFor({ protocol: 'http:', host: 'localhost:5173', pathname: '/' })).toBe(
+      'http://localhost:5173/',
+    )
+    expect(baseUrlFor({ protocol: 'http:', host: '127.0.0.1:4173', pathname: '/' })).toBe(
+      'http://127.0.0.1:4173/',
+    )
+  })
+
+  it('index.html ekini temizler', () => {
+    expect(baseUrlFor({ protocol: 'https:', host: 'ornek.com', pathname: '/not/index.html' })).toBe(
+      'https://ornek.com/not/',
+    )
   })
 })

@@ -94,16 +94,13 @@ function parseBlock(raw: unknown): Block | null {
     ? (record.type as BlockType)
     : 'paragraph'
 
-  const src = typeof record.src === 'string' ? record.src : undefined
-  const safeSrc = src && /^(https?:\/\/|data:image\/)/i.test(src) ? src : undefined
-
   return {
     id: createId('b'),
     type,
     html: sanitizeHtml(trimText(record.html, 20_000)),
     checked: record.checked === true,
     language: typeof record.language === 'string' ? record.language.slice(0, 20) : undefined,
-    src: safeSrc,
+    src: normalizeImageSrc(record.src),
     caption: trimText(record.caption, 240) || undefined,
     emoji: trimText(record.emoji, 8) || undefined,
   }
@@ -113,11 +110,9 @@ function parseCover(raw: unknown): Cover | undefined {
   if (!raw || typeof raw !== 'object') return undefined
   const record = raw as Record<string, unknown>
 
-  if (record.type === 'image' && typeof record.src === 'string') {
-    if (/^(https?:\/\/|data:image\/)/i.test(record.src)) {
-      return { type: 'image', src: record.src }
-    }
-    return undefined
+  if (record.type === 'image') {
+    const src = normalizeImageSrc(record.src)
+    return src ? { type: 'image', src } : undefined
   }
 
   if (record.type === 'gradient' && typeof record.id === 'string') {
@@ -127,11 +122,28 @@ function parseCover(raw: unknown): Cover | undefined {
   return undefined
 }
 
+function normalizeImageSrc(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  if (/^data:image\//i.test(value)) return value
+  if (/^https?:\/\//i.test(value)) return value.replace(/^http:\/\//i, 'https://')
+  return undefined
+}
+
 function trimText(value: unknown, max: number): string {
   return typeof value === 'string' ? value.slice(0, max) : ''
 }
 
 function getBaseUrl(): string {
   if (typeof window === 'undefined') return 'https://bloknot.local/'
-  return `${window.location.origin}${window.location.pathname}`.replace(/index\.html$/, '')
+  return baseUrlFor(window.location)
+}
+
+/** Paylaşım bağlantısının tabanını üretir; genel adreslerde HTTP'yi HTTPS'e yükseltir. */
+export function baseUrlFor(location: Pick<Location, 'protocol' | 'host' | 'pathname'>): string {
+  const isLocal =
+    /^(localhost|127\.0\.0\.1|\[::1\]|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)(?::\d+)?$/.test(
+      location.host,
+    )
+  const protocol = location.protocol === 'http:' && !isLocal ? 'https:' : location.protocol
+  return `${protocol}//${location.host}${location.pathname}`.replace(/index\.html$/, '')
 }
