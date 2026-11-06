@@ -7,16 +7,28 @@ import {
   GripVertical,
   ImagePlus,
   Link2,
+  Loader2,
   Plus,
+  Sparkles,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react'
 import type { Block, BlockType } from '../../types'
 import { useStore } from '../../store/useStore'
 import { decodeHtmlText, focusEditable } from '../../lib/dom'
-import { escapeHtml } from '../../lib/sanitize'
+import { escapeHtml, htmlToText } from '../../lib/sanitize'
 import { imageFileToDataUrl } from '../../lib/media'
 import { playSound } from '../../lib/sound'
+import {
+  AI_PROVIDERS,
+  aiConfigFromSettings,
+  blockAiTextToHtml,
+  buildBlockPrompt,
+  chatComplete,
+  defaultSystemPrompt,
+} from '../../lib/ai'
+import { getAiKey } from '../../lib/aiKey'
 import { Editable } from './Editable'
 import { BlockTypeMenu } from './BlockTypeMenu'
 import { EmojiPicker } from '../EmojiPicker'
@@ -85,8 +97,15 @@ export function BlockRow({
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiSuggestion, setAiSuggestion] = useState('')
+  const [focusAfterAi, setFocusAfterAi] = useState(0)
   const fileInput = useRef<HTMLInputElement>(null)
   const codeRef = useRef<HTMLTextAreaElement>(null)
+  const latestHtml = useRef(block.html)
+  const mounted = useRef(true)
+
+  latestHtml.current = block.html
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: block.id,
@@ -98,6 +117,29 @@ export function BlockRow({
     textarea.style.height = 'auto'
     textarea.style.height = `${Math.max(60, textarea.scrollHeight)}px`
   }, [block.html])
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!focusAfterAi) return
+    const element = document.querySelector<HTMLElement>(
+      `[data-block-id="${block.id}"] .editable`,
+    )
+    if (!element) return
+    element.focus()
+    const selection = window.getSelection()
+    if (!selection) return
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    range.collapse(false)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }, [focusAfterAi, block.id])
 
   const update = (patch: Partial<Block>) => updateBlock(noteId, block.id, patch)
 
@@ -122,7 +164,10 @@ export function BlockRow({
   }
 
   const editableProps = {
-    onChange: (html: string) => update({ html }),
+    onChange: (html: string) => {
+      update({ html })
+      if (aiSuggestion) setAiSuggestion('')
+    },
     onSplit,
     onBackspaceEmpty: handleBackspaceEmpty,
     onMergePrevious: onMerge,
@@ -161,6 +206,80 @@ export function BlockRow({
     setUrl('')
     setUrlOpen(false)
     setError('')
+  }
+
+  const canUseBlockAi =
+    block.type !== 'image' && block.type !== 'divider' && block.type !== 'code'
+
+  const runBlockAi = async () => {
+    if (aiBusy) return
+
+    const text = htmlToText(block.html).trim()
+    if (!text) {
+      pushToast('Bu blok boş. Önce bir metin yaz.', 'danger')
+      return
+    }
+
+    const provider = AI_PROVIDERS[settings.aiProvider] ?? AI_PROVIDERS.groq
+    if (!settings.aiBaseUrl.trim() || !settings.aiModel.trim()) {
+      pushToast('AI bağlantısı ayarlı değil. AI panelinden tamamla.', 'danger')
+      return
+    }
+
+    const apiKey = getAiKey()
+    if (provider.requiresKey && !apiKey.trim()) {
+      pushToast('AI anahtarı yok. AI panelinden anahtarını gir.', 'danger')
+      return
+    }
+
+    const originalHtml = block.html
+    setAiBusy(true)
+    setAiSuggestion('')
+
+    try {
+      const result = await chatComplete(
+        aiConfigFromSettings(settings, apiKey),
+        [
+          { role: 'system', content: defaultSystemPrompt('improve') },
+          { role: 'user', content: buildBlockPrompt(block.type, text) },
+        ],
+        { temperature: 0.2, maxTokens: 800 },
+      )
+
+      if (!mounted.current) return
+      if (latestHtml.current !== originalHtml) {
+        pushToast('Blok bu sırada değişti; AI önerisi gösterilmedi.', 'danger')
+        return
+      }
+
+      const html = blockAiTextToHtml(result)
+      if (!htmlToText(html).trim()) {
+        pushToast('AI boş bir öneri döndürdü. Tekrar dene.', 'danger')
+        return
+      }
+
+      setAiSuggestion(html)
+    } catch (caught) {
+      if (!mounted.current) return
+      pushToast(caught instanceof Error ? caught.message : 'AI bloğu düzeltemedi.', 'danger')
+    } finally {
+      if (mounted.current) setAiBusy(false)
+    }
+  }
+
+  const applyAiSuggestion = () => {
+    if (!aiSuggestion) return
+
+    const active = document.activeElement
+    if (active instanceof HTMLElement) {
+      const row = active.closest('[data-block-id]')
+      if (row?.getAttribute('data-block-id') === block.id) active.blur()
+    }
+
+    update({ html: aiSuggestion })
+    setAiSuggestion('')
+    setFocusAfterAi((value) => value + 1)
+    pushToast('Blok AI ile düzeltildi.', 'success')
   }
 
   const style = {
@@ -469,7 +588,7 @@ export function BlockRow({
       data-block-id={block.id}
       className={`block-row group/block relative ${headingSpacing} ${
         block.type === 'divider' ? '' : 'py-[3px]'
-      }`}
+      } ${aiBusy || aiSuggestion ? 'block-ai-active' : ''}`}
     >
       <div className="block-tools absolute left-0 top-0.5 z-10 flex items-center gap-0.5 sm:-left-12">
         <button
@@ -496,7 +615,90 @@ export function BlockRow({
         </button>
       </div>
 
-      <div className={block.type === 'divider' ? '' : 'pl-9 sm:pl-0'}>{renderBody()}</div>
+      {canUseBlockAi && (
+        <div className="block-ai-action absolute right-0 top-0.5 z-10 sm:-right-12">
+          <button
+            type="button"
+            onClick={() => void runBlockAi()}
+            disabled={aiBusy}
+            className={`inline-flex h-6 items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 text-[0.65rem] font-extrabold text-[var(--text-faint)] shadow-[0_4px_12px_-8px_rgba(0,0,0,0.35)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-wait disabled:opacity-70 ${
+              aiBusy ? 'text-[var(--accent)]' : ''
+            }`}
+            aria-label="Bu bloğu AI ile düzelt"
+            title={aiBusy ? 'AI düzeltiyor…' : 'AI ile düzelt'}
+          >
+            {aiBusy ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            <span className="hidden sm:inline">AI</span>
+          </button>
+        </div>
+      )}
+
+      <div className={block.type === 'divider' ? '' : 'pl-9 sm:pl-0'}>
+        <div className={canUseBlockAi ? 'pr-8 sm:pr-0' : ''}>{renderBody()}</div>
+
+        {aiBusy && (
+          <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs font-semibold text-[var(--text-soft)]">
+            <Loader2 className="size-3.5 animate-spin text-[var(--accent)]" />
+            AI bloğu düzeltiyor…
+          </div>
+        )}
+
+        {aiSuggestion && (
+          <div className="animate-pop mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)]">
+            <div className="flex items-start gap-2">
+              <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+                <Sparkles className="size-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                  AI önerisi
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-[var(--text)]">
+                  {htmlToText(aiSuggestion)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiSuggestion('')}
+                className="grid size-6 shrink-0 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                aria-label="AI önerisini kapat"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={applyAiSuggestion}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)] active:scale-[0.98]"
+              >
+                <Check className="size-3.5" />
+                Uygula
+              </button>
+              <button
+                type="button"
+                onClick={() => setAiSuggestion('')}
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-bold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={() => void runBlockAi()}
+                disabled={aiBusy}
+                className="ml-auto rounded-lg px-2 py-1.5 text-xs font-bold text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)] disabled:opacity-50"
+              >
+                Yeniden dene
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <BlockTypeMenu
         open={menuOpen}

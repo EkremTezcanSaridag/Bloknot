@@ -1,5 +1,6 @@
-import type { AiProvider, Note } from '../types'
+import type { AiProvider, BlockType, Note } from '../types'
 import { noteToMarkdown } from './markdown'
+import { inlineMarkdownToHtml, sanitizeHtml } from './sanitize'
 import { SHARED_GROQ_MODEL, SHARED_GROQ_PROXY_URL } from './aiConfig'
 
 export type AiActionId =
@@ -352,6 +353,58 @@ export function buildPrompt(
     default:
       return `${userPrompt.trim()}${noteSection}`
   }
+}
+
+const BLOCK_TYPE_HINTS: Partial<Record<BlockType, string>> = {
+  paragraph: 'paragraf',
+  heading1: 'başlık',
+  heading2: 'başlık',
+  heading3: 'başlık',
+  bulleted: 'liste öğesi',
+  numbered: 'numaralı liste öğesi',
+  todo: 'yapılacak iş',
+  quote: 'alıntı',
+  callout: 'not kutusu',
+}
+
+/** Tek bir bloğu düzeltmek için AI istemi üretir. */
+export function buildBlockPrompt(type: BlockType, text: string): string {
+  const hint = BLOCK_TYPE_HINTS[type] ?? 'metin'
+  const extra =
+    type === 'heading1' || type === 'heading2' || type === 'heading3'
+      ? 'Başlığı kısa tut.'
+      : type === 'quote'
+        ? 'Alıntı tonunu koru.'
+        : type === 'todo'
+          ? 'Yapılacak işi kısa ve net tut.'
+          : 'Metni tek satırda tut.'
+
+  return (
+    `Aşağıdaki ${hint} metnini Türkçe yazım, dilbilgisi ve anlatım açısından düzelt. ` +
+    'Anlamı değiştirme, yeni bilgi ekleme, metni gereksiz uzatma. ' +
+    'Yalnızca düzeltilmiş metni döndür; açıklama, tırnak, başlık işareti (#), ' +
+    `madde işareti (-), numara veya kod bloğu ekleme. ${extra}\n\n` +
+    `METİN:\n${text.trim()}`
+  )
+}
+
+/** AI'ın blok için döndürdüğü metni temizler. */
+export function cleanBlockAiText(text: string): string {
+  return text
+    .replace(/```[a-z]*\s*/gi, '')
+    .replace(/```/g, '')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s{0,3}(?:#{1,6}|[-*+]|\d+[.)])\s+/, ''))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^["“”'‘’]+|["“”'‘’]+$/g, '')
+    .trim()
+}
+
+/** AI metnini bloğun sakladığı güvenli satır içi HTML'e çevirir. */
+export function blockAiTextToHtml(text: string): string {
+  return sanitizeHtml(inlineMarkdownToHtml(cleanBlockAiText(text)))
 }
 
 export function noteTextForAi(note: Note | null, includeNote: boolean): string {

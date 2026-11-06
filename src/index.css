@@ -294,18 +294,23 @@ textarea {
 }
 
 /* Editör satırı hover kontrolleri */
-.block-row .block-tools {
+.block-row .block-tools,
+.block-row .block-ai-action {
   opacity: 0;
   transition: opacity 120ms ease;
 }
 
 .block-row:hover .block-tools,
-.block-row:focus-within .block-tools {
+.block-row:focus-within .block-tools,
+.block-row:hover .block-ai-action,
+.block-row:focus-within .block-ai-action,
+.block-row.block-ai-active .block-ai-action {
   opacity: 1;
 }
 
 @media (hover: none) {
-  .block-row .block-tools {
+  .block-row .block-tools,
+  .block-row .block-ai-action {
     opacity: 1;
   }
 }

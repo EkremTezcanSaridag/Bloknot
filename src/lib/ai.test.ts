@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Note } from '../types'
 import {
   AI_PROVIDERS,
+  blockAiTextToHtml,
+  buildBlockPrompt,
   buildPrompt,
   chatComplete,
   chatEndpoint,
@@ -141,5 +143,25 @@ describe('istek üretimi', () => {
     expect(body.max_completion_tokens).toBe(1400)
     expect(body.max_tokens).toBeUndefined()
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer gsk_test')
+  })
+})
+
+describe('blok düzeltme', () => {
+  it('blok türüne göre düzeltme istemi üretir', () => {
+    const prompt = buildBlockPrompt('heading2', 'yanlış başlık')
+    expect(prompt).toContain('başlık')
+    expect(prompt).toContain('yanlış başlık')
+    expect(prompt).toContain('Yalnızca düzeltilmiş metni')
+    expect(prompt).toContain('Başlığı kısa tut')
+  })
+
+  it('AI metnini satır içi biçimlendirmeyle güvenli HTML e çevirir', () => {
+    expect(blockAiTextToHtml('**kalın** metin')).toBe('<strong>kalın</strong> metin')
+    expect(blockAiTextToHtml('"Düzeltilmiş metin."')).toBe('Düzeltilmiş metin.')
+    expect(blockAiTextToHtml('```\n- düzeltilmiş madde\n```')).toBe('düzeltilmiş madde')
+  })
+
+  it('AI metnindeki HTML i etkisizleştirir', () => {
+    expect(blockAiTextToHtml('<script>alert(1)</script>')).not.toContain('<script>')
   })
 })
