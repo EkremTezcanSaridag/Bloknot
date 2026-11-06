@@ -1,3 +1,5 @@
+import { ALLOWED_TEXT_STYLE_CLASSES } from './textStyles'
+
 const ALLOWED_TAGS = new Set([
   'B',
   'STRONG',
@@ -10,6 +12,7 @@ const ALLOWED_TAGS = new Set([
   'BR',
   'A',
   'MARK',
+  'SPAN',
 ])
 
 const DROP_TAGS = new Set([
@@ -86,6 +89,16 @@ function cleanChildren(parent: Element): void {
         }
         continue
       }
+
+      if (tag === 'SPAN' && attribute.name === 'class') {
+        const allowed = attribute.value
+          .split(/\s+/)
+          .filter((className) => ALLOWED_TEXT_STYLE_CLASSES.has(className))
+        if (allowed.length) element.setAttribute('class', Array.from(new Set(allowed)).join(' '))
+        else element.removeAttribute('class')
+        continue
+      }
+
       element.removeAttribute(attribute.name)
     }
 
@@ -95,6 +108,11 @@ function cleanChildren(parent: Element): void {
     }
 
     cleanChildren(element)
+
+    // Sınıfı kalmayan span'ı gereksiz yere DOM'da tutma.
+    if (tag === 'SPAN' && !element.getAttribute('class')) {
+      element.replaceWith(...Array.from(element.childNodes))
+    }
   }
 }
 

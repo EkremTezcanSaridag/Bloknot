@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { AlertTriangle, ArrowLeft, CopyPlus, Eye, Link2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CopyPlus, Eye, Link2, ShieldCheck } from 'lucide-react'
 import type { SharedNote as SharedNoteData } from '../lib/share'
 import { decodeSharedNote } from '../lib/share'
 import { coverStyle } from '../lib/covers'
@@ -142,6 +142,14 @@ function SharedNoteView({ shared, onCopy }: { shared: SharedNoteData; onCopy: ()
             <Link2 className="size-3.5" />
             Bloknot bağlantısıyla paylaşıldı · salt okunur
             {words > 0 && <span>· {words} kelime</span>}
+          </p>
+
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[0.65rem] font-semibold text-[var(--text-soft)]">
+            <ShieldCheck className="size-3.5 text-[var(--success)]" />
+            {typeof window !== 'undefined' && window.location.protocol === 'https:'
+              ? 'HTTPS'
+              : 'Yerel'}{' '}
+            · hesap yok, form yok; not yalnızca bağlantıda taşınır
           </p>
         </div>
 

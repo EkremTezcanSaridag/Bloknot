@@ -49,11 +49,13 @@ npm run icons     # PWA ikonlarını yeniden üret (Windows)
 
 Notlar **IndexedDB** içinde, yalnızca bu tarayıcıda tutulur. Tarayıcı verilerini temizlersen notlar silinir. Bu yüzden Ayarlar → Yedekleme bölümünden ara sıra JSON yedeği almanı öneririz.
 
-Paylaşım bağlantılarında not içeriği sıkıştırılmış olarak URL'nin `#/p/...` kısmında taşınır. Yani paylaşılan not bir sunucuya yüklenmez; bağlantıyı alan kişi içeriği kendi tarayıcısında açar.
+Paylaşım bağlantılarında not içeriği sıkıştırılmış olarak URL'nin `#/p/...` kısmında taşınır. Yani paylaşılan not bir sunucuya yüklenmez; bağlantıyı alan kişi içeriği kendi tarayıcısında açar. Genel adreslerde paylaşım bağlantısı her zaman HTTPS olarak üretilir.
+
+Metinde seçim yapınca açılan biçimlendirme çubuğundan yazı boyutunu ve rengini değiştirebilirsin. Bu stiller serbest CSS yerine yalnızca izin verilen güvenli sınıflarla saklanır; paylaşılan notlarda da görünür.
 
 ## AI Asistan
 
-Sağ üstteki **AI** düğmesiyle notunu düzeltebilir, özetleyebilir, başlık/listelere bölebilir, fikir üretebilir, Mermaid şeması çizebilir veya anahtarsız AI görseli üretebilirsin. Sonuçları nota ekleyebilir ya da notun tamamını değiştirebilirsin. Ayrıca her bloğun sağ üstünde beliren **✨ AI** düğmesiyle yalnızca o bloğu düzelttirebilir, öneriyi görüp tek tıkla uygulayabilirsin.
+Sağ üstteki **AI** düğmesiyle notunu düzeltebilir, özetleyebilir, başlık/listelere bölebilir, fikir üretebilir, Mermaid şeması çizebilir veya anahtarsız AI görseli üretebilirsin. Sonuçları nota ekleyebilir ya da notun tamamını değiştirebilirsin. Ayrıca her bloğun sağ üstünde beliren **✨ AI** düğmesiyle o bloğa özel istem yazabilirsin: boş bir blokta “AI hakkında bir başlık aç ve alt başlıklarda açıklama yap” gibi bir istemle başlık, alt başlık ve açıklama blokları üretebilir; dolu bir blokta **Düzelt** ile blok türünü koruyarak yazımı düzelttirebilir veya **Oluştur** ile çok bloklu yeni içerik hazırlayabilirsin. AI sonucu değiştirilmiş bir bloğa uygulanmaz; önce önizlersin.
 
 **Paylaşımlı anahtar (herkes için tek anahtar):**
 

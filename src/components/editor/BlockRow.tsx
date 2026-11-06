@@ -7,25 +7,30 @@ import {
   GripVertical,
   ImagePlus,
   Link2,
+  ListPlus,
   Loader2,
   Plus,
   Sparkles,
   Trash2,
   Upload,
+  Wand2,
   X,
 } from 'lucide-react'
 import type { Block, BlockType } from '../../types'
 import { useStore } from '../../store/useStore'
 import { decodeHtmlText, focusEditable } from '../../lib/dom'
-import { escapeHtml, htmlToText } from '../../lib/sanitize'
+import { escapeHtml, htmlToText, sanitizeHtml } from '../../lib/sanitize'
 import { imageFileToDataUrl } from '../../lib/media'
+import { markdownToBlocks } from '../../lib/markdown'
 import { playSound } from '../../lib/sound'
 import {
   AI_PROVIDERS,
   aiConfigFromSettings,
   blockAiTextToHtml,
+  buildBlockGeneratePrompt,
   buildBlockPrompt,
   chatComplete,
+  cleanGeneratedMarkdown,
   defaultSystemPrompt,
 } from '../../lib/ai'
 import { getAiKey } from '../../lib/aiKey'
@@ -72,6 +77,17 @@ const PLACEHOLDERS: Partial<Record<BlockType, string>> = {
 
 const LANGUAGES = ['text', 'javascript', 'typescript', 'python', 'html', 'css', 'json', 'bash', 'sql', 'markdown']
 
+const AI_QUICK_PROMPTS = [
+  {
+    label: 'Başlık + alt başlıklar',
+    prompt:
+      'Bu konu hakkında bir ana başlık ve alt başlıklar oluştur; her alt başlığın altına kısa bir açıklama yaz.',
+  },
+  { label: 'Özetle', prompt: 'Bu içeriği kısa ve net biçimde özetle.' },
+  { label: 'Maddelere böl', prompt: 'Bu içeriği anlaşılır maddelere böl.' },
+  { label: 'Fikir üret', prompt: 'Bu konu hakkında 5 kısa ve uygulanabilir fikir üret.' },
+]
+
 export function BlockRow({
   noteId,
   block,
@@ -85,6 +101,8 @@ export function BlockRow({
   onPasteText,
 }: BlockRowProps) {
   const updateBlock = useStore((state) => state.updateBlock)
+  const insertBlocks = useStore((state) => state.insertBlocks)
+  const replaceBlockWithBlocks = useStore((state) => state.replaceBlockWithBlocks)
   const toggleTodo = useStore((state) => state.toggleTodo)
   const celebrate = useStore((state) => state.celebrate)
   const settings = useStore((state) => state.settings)
@@ -97,11 +115,16 @@ export function BlockRow({
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
+  const [aiAction, setAiAction] = useState<'correct' | 'generate' | null>(null)
   const [aiSuggestion, setAiSuggestion] = useState('')
+  const [aiGenerated, setAiGenerated] = useState<Block[]>([])
   const [focusAfterAi, setFocusAfterAi] = useState(0)
   const fileInput = useRef<HTMLInputElement>(null)
   const codeRef = useRef<HTMLTextAreaElement>(null)
+  const aiPromptRef = useRef<HTMLTextAreaElement>(null)
   const latestHtml = useRef(block.html)
   const mounted = useRef(true)
 
@@ -167,6 +190,7 @@ export function BlockRow({
     onChange: (html: string) => {
       update({ html })
       if (aiSuggestion) setAiSuggestion('')
+      if (aiGenerated.length) setAiGenerated([])
     },
     onSplit,
     onBackspaceEmpty: handleBackspaceEmpty,
@@ -210,13 +234,35 @@ export function BlockRow({
 
   const canUseBlockAi =
     block.type !== 'image' && block.type !== 'divider' && block.type !== 'code'
+  const blockText = htmlToText(block.html).trim()
 
-  const runBlockAi = async () => {
+  const toggleAiPanel = () => {
+    if (aiBusy) return
+    setAiPanelOpen((open) => {
+      const next = !open
+      if (next) window.setTimeout(() => aiPromptRef.current?.focus(), 40)
+      return next
+    })
+  }
+
+  const closeAiPanel = () => {
+    if (aiBusy) return
+    setAiPanelOpen(false)
+  }
+
+  const runBlockAi = async (mode: 'correct' | 'generate') => {
     if (aiBusy) return
 
     const text = htmlToText(block.html).trim()
-    if (!text) {
-      pushToast('Bu blok boş. Önce bir metin yaz.', 'danger')
+    const customPrompt = aiPrompt.trim()
+
+    if (mode === 'correct' && !text) {
+      pushToast('Düzeltmek için önce bloğa bir metin yaz.', 'danger')
+      return
+    }
+
+    if (mode === 'generate' && !customPrompt) {
+      pushToast('AI’ya ne oluşturmasını istediğini yaz.', 'danger')
       return
     }
 
@@ -233,17 +279,29 @@ export function BlockRow({
     }
 
     const originalHtml = block.html
+    setAiPanelOpen(true)
     setAiBusy(true)
+    setAiAction(mode)
     setAiSuggestion('')
+    setAiGenerated([])
 
     try {
       const result = await chatComplete(
         aiConfigFromSettings(settings, apiKey),
         [
-          { role: 'system', content: defaultSystemPrompt('improve') },
-          { role: 'user', content: buildBlockPrompt(block.type, text) },
+          {
+            role: 'system',
+            content: defaultSystemPrompt(mode === 'correct' ? 'improve' : 'format'),
+          },
+          {
+            role: 'user',
+            content:
+              mode === 'correct'
+                ? buildBlockPrompt(block.type, text, customPrompt)
+                : buildBlockGeneratePrompt(block.type, text, customPrompt),
+          },
         ],
-        { temperature: 0.2, maxTokens: 800 },
+        { temperature: mode === 'correct' ? 0.2 : 0.55, maxTokens: mode === 'correct' ? 800 : 1400 },
       )
 
       if (!mounted.current) return
@@ -252,34 +310,83 @@ export function BlockRow({
         return
       }
 
-      const html = blockAiTextToHtml(result)
-      if (!htmlToText(html).trim()) {
-        pushToast('AI boş bir öneri döndürdü. Tekrar dene.', 'danger')
-        return
+      if (mode === 'correct') {
+        const html = blockAiTextToHtml(result)
+        if (!htmlToText(html).trim()) {
+          pushToast('AI boş bir öneri döndürdü. Tekrar dene.', 'danger')
+          return
+        }
+        setAiSuggestion(html)
+      } else {
+        const generated = markdownToBlocks(cleanGeneratedMarkdown(result)).filter(
+          (item) =>
+            item.type === 'divider' ||
+            item.type === 'image' ||
+            Boolean(htmlToText(item.html).trim()),
+        )
+        if (!generated.length) {
+          pushToast('AI boş bir taslak döndürdü. İstemi değiştirip tekrar dene.', 'danger')
+          return
+        }
+        setAiGenerated(generated)
       }
-
-      setAiSuggestion(html)
     } catch (caught) {
       if (!mounted.current) return
-      pushToast(caught instanceof Error ? caught.message : 'AI bloğu düzeltemedi.', 'danger')
+      const message =
+        mode === 'correct' ? 'AI bloğu düzeltemedi.' : 'AI içerik oluşturamadı.'
+      pushToast(caught instanceof Error ? caught.message : message, 'danger')
     } finally {
-      if (mounted.current) setAiBusy(false)
+      if (mounted.current) {
+        setAiBusy(false)
+        setAiAction(null)
+      }
+    }
+  }
+
+  const blurBlockEditor = () => {
+    const active = document.activeElement
+    if (active instanceof HTMLElement) {
+      const row = active.closest('[data-block-id]')
+      if (row?.getAttribute('data-block-id') === block.id) active.blur()
     }
   }
 
   const applyAiSuggestion = () => {
     if (!aiSuggestion) return
 
-    const active = document.activeElement
-    if (active instanceof HTMLElement) {
-      const row = active.closest('[data-block-id]')
-      if (row?.getAttribute('data-block-id') === block.id) active.blur()
-    }
-
+    blurBlockEditor()
     update({ html: aiSuggestion })
     setAiSuggestion('')
+    setAiPanelOpen(false)
+    setAiPrompt('')
     setFocusAfterAi((value) => value + 1)
     pushToast('Blok AI ile düzeltildi.', 'success')
+  }
+
+  const applyGenerated = (where: 'replace' | 'after') => {
+    if (!aiGenerated.length) return
+
+    blurBlockEditor()
+    const generated = aiGenerated
+    const ids =
+      where === 'replace'
+        ? replaceBlockWithBlocks(noteId, block.id, generated)
+        : insertBlocks(noteId, generated, block.id)
+
+    const focusId = generated.find(
+      (item) => item.type !== 'divider' && item.type !== 'image' && item.type !== 'code',
+    )?.id
+    const firstId = ids[0]
+    const targetId = focusId ?? firstId
+
+    setAiGenerated([])
+    setAiPanelOpen(false)
+    setAiPrompt('')
+    if (targetId) window.setTimeout(() => focusEditable(targetId, 'start'), 30)
+    pushToast(
+      where === 'replace' ? 'AI içeriği bloğa uygulandı.' : 'AI içeriği bloğun altına eklendi.',
+      'success',
+    )
   }
 
   const style = {
@@ -588,7 +695,7 @@ export function BlockRow({
       data-block-id={block.id}
       className={`block-row group/block relative ${headingSpacing} ${
         block.type === 'divider' ? '' : 'py-[3px]'
-      } ${aiBusy || aiSuggestion ? 'block-ai-active' : ''}`}
+      } ${aiBusy || aiPanelOpen || aiSuggestion || aiGenerated.length ? 'block-ai-active' : ''}`}
     >
       <div className="block-tools absolute left-0 top-0.5 z-10 flex items-center gap-0.5 sm:-left-12">
         <button
@@ -619,13 +726,14 @@ export function BlockRow({
         <div className="block-ai-action absolute right-0 top-0.5 z-10 sm:-right-12">
           <button
             type="button"
-            onClick={() => void runBlockAi()}
+            onClick={toggleAiPanel}
             disabled={aiBusy}
             className={`inline-flex h-6 items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 text-[0.65rem] font-extrabold text-[var(--text-faint)] shadow-[0_4px_12px_-8px_rgba(0,0,0,0.35)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-wait disabled:opacity-70 ${
-              aiBusy ? 'text-[var(--accent)]' : ''
+              aiBusy || aiPanelOpen ? 'border-[var(--accent)] text-[var(--accent)]' : ''
             }`}
-            aria-label="Bu bloğu AI ile düzelt"
-            title={aiBusy ? 'AI düzeltiyor…' : 'AI ile düzelt'}
+            aria-label="Blok AI panelini aç"
+            aria-expanded={aiPanelOpen}
+            title={aiBusy ? 'AI çalışıyor…' : 'AI ile düzelt veya oluştur'}
           >
             {aiBusy ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -640,10 +748,107 @@ export function BlockRow({
       <div className={block.type === 'divider' ? '' : 'pl-9 sm:pl-0'}>
         <div className={canUseBlockAi ? 'pr-8 sm:pr-0' : ''}>{renderBody()}</div>
 
+        {aiPanelOpen && (
+          <div className="animate-pop mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)]">
+            <div className="flex items-start gap-2">
+              <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+                <Sparkles className="size-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                  Blok AI
+                </p>
+                <p className="mt-0.5 text-[0.7rem] font-semibold text-[var(--text-soft)]">
+                  Düzelt ya da kendi isteminle yeni içerik oluştur. Boş bloklarda da çalışır.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAiPanel}
+                disabled={aiBusy}
+                className="grid size-6 shrink-0 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)] disabled:opacity-40"
+                aria-label="Blok AI panelini kapat"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+
+            <label className="mt-2.5 block">
+              <span className="mb-1 block text-[0.62rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                İstem
+              </span>
+              <textarea
+                ref={aiPromptRef}
+                value={aiPrompt}
+                onChange={(event) => setAiPrompt(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                    event.preventDefault()
+                    void runBlockAi(aiPrompt.trim() ? 'generate' : 'correct')
+                  }
+                }}
+                rows={2}
+                placeholder="Örn. AI hakkında bir başlık aç ve alt başlıklarda açıklama yap…"
+                className="min-h-[60px] w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm font-semibold leading-relaxed text-[var(--text)] outline-none transition placeholder:text-[var(--text-faint)] focus:border-[var(--accent)]"
+              />
+            </label>
+
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {AI_QUICK_PROMPTS.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => {
+                    setAiPrompt(item.prompt)
+                    aiPromptRef.current?.focus()
+                  }}
+                  className="rounded-full border border-[var(--border)] bg-[var(--surface-2)]/60 px-2 py-1 text-[0.62rem] font-bold text-[var(--text-soft)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => void runBlockAi('correct')}
+                disabled={aiBusy || !blockText}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                title={blockText ? 'Mevcut metni düzelt' : 'Düzeltmek için önce metin yaz'}
+              >
+                {aiBusy && aiAction === 'correct' ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="size-3.5" />
+                )}
+                Düzelt
+              </button>
+              <button
+                type="button"
+                onClick={() => void runBlockAi('generate')}
+                disabled={aiBusy || !aiPrompt.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-extrabold text-[var(--text-soft)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                title={aiPrompt.trim() ? 'İsteme göre içerik oluştur' : 'Önce bir istem yaz'}
+              >
+                {aiBusy && aiAction === 'generate' ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <ListPlus className="size-3.5" />
+                )}
+                Oluştur
+              </button>
+              <span className="ml-auto hidden text-[0.6rem] font-semibold text-[var(--text-faint)] sm:inline">
+                Ctrl/Cmd + Enter
+              </span>
+            </div>
+          </div>
+        )}
+
         {aiBusy && (
           <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs font-semibold text-[var(--text-soft)]">
             <Loader2 className="size-3.5 animate-spin text-[var(--accent)]" />
-            AI bloğu düzeltiyor…
+            {aiAction === 'generate' ? 'AI içerik oluşturuyor…' : 'AI bloğu düzeltiyor…'}
           </div>
         )}
 
@@ -655,7 +860,7 @@ export function BlockRow({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
-                  AI önerisi
+                  AI önerisi · düzeltme
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-[var(--text)]">
                   {htmlToText(aiSuggestion)}
@@ -689,7 +894,69 @@ export function BlockRow({
               </button>
               <button
                 type="button"
-                onClick={() => void runBlockAi()}
+                onClick={() => void runBlockAi('correct')}
+                disabled={aiBusy}
+                className="ml-auto rounded-lg px-2 py-1.5 text-xs font-bold text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)] disabled:opacity-50"
+              >
+                Yeniden dene
+              </button>
+            </div>
+          </div>
+        )}
+
+        {aiGenerated.length > 0 && (
+          <div className="animate-pop mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)]">
+            <div className="flex items-start gap-2">
+              <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+                <Sparkles className="size-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                  AI taslağı · {aiGenerated.length} blok
+                </p>
+                <p className="mt-0.5 text-[0.68rem] font-semibold text-[var(--text-soft)]">
+                  Önizlemeyi kontrol et; bloğun yerine koy veya altına ekle.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiGenerated([])}
+                className="grid size-6 shrink-0 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                aria-label="AI taslağını kapat"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+
+            <GeneratedBlocksPreview blocks={aiGenerated} />
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => applyGenerated('replace')}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)] active:scale-[0.98]"
+              >
+                <Check className="size-3.5" />
+                Bloğa uygula
+              </button>
+              <button
+                type="button"
+                onClick={() => applyGenerated('after')}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-bold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+              >
+                <Plus className="size-3.5" />
+                Altına ekle
+              </button>
+              <button
+                type="button"
+                onClick={() => setAiGenerated([])}
+                className="rounded-lg px-2 py-1.5 text-xs font-bold text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={() => void runBlockAi('generate')}
                 disabled={aiBusy}
                 className="ml-auto rounded-lg px-2 py-1.5 text-xs font-bold text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)] disabled:opacity-50"
               >
@@ -721,6 +988,117 @@ export function BlockRow({
         <span className="ml-9 mt-1 block text-[0.65rem] font-semibold text-[var(--text-faint)] sm:ml-0">
           Esc ile çık • Sekmeyle değil, boşluklarla hizala
         </span>
+      )}
+    </div>
+  )
+}
+
+function GeneratedBlocksPreview({ blocks }: { blocks: Block[] }) {
+  const visible = blocks.slice(0, 16)
+
+  return (
+    <div className="mt-2 max-h-64 space-y-1.5 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)] p-2.5">
+      {visible.map((item, index) => {
+        const html = sanitizeHtml(item.html)
+
+        switch (item.type) {
+          case 'heading1':
+            return (
+              <p
+                key={item.id}
+                className="font-display text-lg font-bold leading-snug"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            )
+          case 'heading2':
+            return (
+              <p
+                key={item.id}
+                className="font-display text-base font-bold leading-snug"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            )
+          case 'heading3':
+            return (
+              <p
+                key={item.id}
+                className="text-sm font-extrabold leading-snug"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            )
+          case 'bulleted':
+            return (
+              <div key={item.id} className="flex items-start gap-2 text-sm leading-relaxed">
+                <span className="mt-[0.58em] size-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                <span className="min-w-0 flex-1" dangerouslySetInnerHTML={{ __html: html }} />
+              </div>
+            )
+          case 'numbered':
+            return (
+              <div key={item.id} className="flex items-start gap-2 text-sm leading-relaxed">
+                <span className="min-w-4 shrink-0 text-right text-xs font-bold text-[var(--text-faint)]">
+                  {index + 1}.
+                </span>
+                <span className="min-w-0 flex-1" dangerouslySetInnerHTML={{ __html: html }} />
+              </div>
+            )
+          case 'todo':
+            return (
+              <div key={item.id} className="flex items-start gap-2 text-sm leading-relaxed">
+                <span className="mt-[0.25em] size-3.5 shrink-0 rounded border-2 border-[var(--border-strong)]" />
+                <span className="min-w-0 flex-1" dangerouslySetInnerHTML={{ __html: html }} />
+              </div>
+            )
+          case 'quote':
+            return (
+              <blockquote
+                key={item.id}
+                className="border-l-2 border-[var(--accent)] pl-2 text-sm italic leading-relaxed text-[var(--text-soft)]"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            )
+          case 'callout':
+            return (
+              <div
+                key={item.id}
+                className="flex items-start gap-2 rounded-lg bg-[var(--accent-soft)] px-2 py-1.5 text-sm leading-relaxed"
+              >
+                <span>{item.emoji ?? '💡'}</span>
+                <span className="min-w-0 flex-1" dangerouslySetInnerHTML={{ __html: html }} />
+              </div>
+            )
+          case 'code':
+            return (
+              <pre
+                key={item.id}
+                className="overflow-x-auto rounded-lg bg-[var(--surface-2)] p-2 font-mono text-[0.7rem] leading-5"
+              >
+                <code>{decodeHtmlText(item.html)}</code>
+              </pre>
+            )
+          case 'divider':
+            return <hr key={item.id} className="my-1 border-[var(--border-strong)]" />
+          case 'image':
+            return (
+              <p key={item.id} className="text-xs font-semibold text-[var(--text-faint)]">
+                🖼️ {item.caption || 'Görsel'}
+              </p>
+            )
+          default:
+            return (
+              <p
+                key={item.id}
+                className="text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            )
+        }
+      })}
+
+      {blocks.length > visible.length && (
+        <p className="pt-1 text-center text-[0.65rem] font-semibold text-[var(--text-faint)]">
+          +{blocks.length - visible.length} blok daha…
+        </p>
       )}
     </div>
   )

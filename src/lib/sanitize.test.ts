@@ -28,6 +28,24 @@ describe('sanitizeHtml', () => {
       '<b>kalın</b> <i>italik</i> <code>kod</code>',
     )
   })
+
+  it('izinli metin boyutu ve rengi sınıflarını korur', () => {
+    expect(
+      sanitizeHtml('<span class="bn-text-size-lg bn-text-color-red">renkli</span>'),
+    ).toBe('<span class="bn-text-size-lg bn-text-color-red">renkli</span>')
+  })
+
+  it('span üzerindeki izinsiz sınıf ve olay dinleyicilerini temizler', () => {
+    const result = sanitizeHtml(
+      '<span class="bn-text-size-lg evil" onclick="alert(1)">metin</span>',
+    )
+    expect(result).toBe('<span class="bn-text-size-lg">metin</span>')
+  })
+
+  it('sınıfı kalmayan spanı kaldırır', () => {
+    expect(sanitizeHtml('<span style="color:red">metin</span>')).toBe('metin')
+    expect(sanitizeHtml('<span class="text-size-huge">metin</span>')).toBe('metin')
+  })
 })
 
 describe('htmlToText', () => {

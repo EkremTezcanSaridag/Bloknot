@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Check, Copy, Download, ExternalLink, Info, Link2, Share2 } from 'lucide-react'
+import { Check, Copy, Download, ExternalLink, Info, Link2, Share2, ShieldCheck } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { encodeNote } from '../lib/share'
 import { copyText } from '../lib/clipboard'
@@ -53,6 +53,7 @@ export function ShareDialog() {
   }
 
   const snippet = noteSnippet(note)
+  const isHttps = link.url.startsWith('https://')
 
   return (
     <Modal
@@ -110,9 +111,11 @@ export function ShareDialog() {
             Kopyala
           </button>
         </div>
-        <p className="mt-1.5 text-[0.65rem] font-semibold text-[var(--text-faint)]">
-          Bağlantı uzunluğu: {Math.max(1, Math.round(link.length / 1024))} KB · Notun içeriği bağlantının
-          içinde taşınır.
+        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[0.65rem] font-semibold text-[var(--text-faint)]">
+          <ShieldCheck className="size-3.5 text-[var(--success)]" />
+          {isHttps ? 'HTTPS ile açılır' : 'Yerel geliştirme bağlantısı'} ·{' '}
+          {Math.max(1, Math.round(link.length / 1024))} KB · Notun içeriği bağlantının içinde
+          taşınır.
         </p>
       </div>
 

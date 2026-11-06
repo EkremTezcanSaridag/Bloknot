@@ -28,6 +28,14 @@ export interface SharedNote {
   tags: string[]
 }
 
+interface SharedNotePayload {
+  title: string
+  emoji: string
+  cover?: Cover
+  blocks: Array<Omit<Block, 'id'>>
+  tags: string[]
+}
+
 export interface ShareLink {
   token: string
   url: string
@@ -36,11 +44,13 @@ export interface ShareLink {
 }
 
 export function encodeNote(note: Note): ShareLink {
-  const payload: SharedNote = {
+  const payload: SharedNotePayload = {
     title: note.title,
     emoji: note.emoji,
     cover: note.cover,
-    blocks: note.blocks,
+    // Blok kimlikleri alıcı tarafta yeniden üretilir; bağlantıyı kısaltmak
+    // için rastgele kimlikleri ve boş alanları paylaşıma koymuyoruz.
+    blocks: note.blocks.map(toShareBlock),
     tags: note.tags,
   }
 
@@ -84,6 +94,18 @@ export function decodeSharedNote(token: string): SharedNote | null {
     }
   } catch {
     return null
+  }
+}
+
+function toShareBlock(block: Block): Omit<Block, 'id'> {
+  return {
+    type: block.type,
+    html: block.html,
+    ...(block.checked ? { checked: true } : {}),
+    ...(block.language ? { language: block.language } : {}),
+    ...(block.src ? { src: block.src } : {}),
+    ...(block.caption ? { caption: block.caption } : {}),
+    ...(block.emoji ? { emoji: block.emoji } : {}),
   }
 }
 

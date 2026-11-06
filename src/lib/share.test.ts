@@ -1,3 +1,4 @@
+import LZString from 'lz-string'
 import { describe, expect, it } from 'vitest'
 import type { Note } from '../types'
 import { baseUrlFor, decodeSharedNote, encodeNote } from './share'
@@ -39,6 +40,25 @@ describe('encodeNote / decodeSharedNote', () => {
 
     const decoded = decodeSharedNote(encodeNote(note).token)
     expect(decoded?.blocks[0].html).toBe('<b>güvenli</b>')
+  })
+
+  it('metin boyutu ve rengi sınıflarını paylaşımda korur', () => {
+    const note = sampleNote()
+    note.blocks[0].html = '<span class="bn-text-size-lg bn-text-color-red">renkli</span>'
+
+    const decoded = decodeSharedNote(encodeNote(note).token)
+    expect(decoded?.blocks[0].html).toBe(
+      '<span class="bn-text-size-lg bn-text-color-red">renkli</span>',
+    )
+  })
+
+  it('paylaşım verisinde blok kimliklerini taşımaz', () => {
+    const token = encodeNote(sampleNote()).token
+    const raw = LZString.decompressFromEncodedURIComponent(token)
+
+    expect(raw).not.toBeNull()
+    expect(raw).not.toContain('"id"')
+    expect(raw).not.toContain('"b1"')
   })
 
   it('tehlikeli kapak bağlantılarını yok sayar', () => {

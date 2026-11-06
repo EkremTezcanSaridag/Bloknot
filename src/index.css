@@ -182,6 +182,82 @@ textarea {
   padding: 0 2px;
 }
 
+/* Blok içi metin boyutu ve rengi (sanitizeHtml tarafından korunur) */
+.bn-text-size-sm {
+  font-size: 0.82em;
+  line-height: inherit;
+}
+
+.bn-text-size-lg {
+  font-size: 1.18em;
+  line-height: inherit;
+}
+
+.bn-text-size-xl {
+  font-size: 1.42em;
+  line-height: inherit;
+}
+
+.bn-text-color-accent {
+  color: var(--accent);
+}
+
+.bn-text-color-red {
+  color: #d93a42;
+}
+
+.bn-text-color-orange {
+  color: #d9650c;
+}
+
+.bn-text-color-green {
+  color: #248a58;
+}
+
+.bn-text-color-blue {
+  color: #0077d9;
+}
+
+.bn-text-color-purple {
+  color: #7e45b5;
+}
+
+.bn-text-color-pink {
+  color: #c0357f;
+}
+
+.bn-text-color-gray {
+  color: #6b7280;
+}
+
+.dark .bn-text-color-red {
+  color: #ff7b7b;
+}
+
+.dark .bn-text-color-orange {
+  color: #ffa25c;
+}
+
+.dark .bn-text-color-green {
+  color: #5fd39a;
+}
+
+.dark .bn-text-color-blue {
+  color: #61b8ff;
+}
+
+.dark .bn-text-color-purple {
+  color: #b18cff;
+}
+
+.dark .bn-text-color-pink {
+  color: #ff8cc8;
+}
+
+.dark .bn-text-color-gray {
+  color: #a1a1aa;
+}
+
 .editable ul,
 .editable ol {
   padding-left: 1.2em;

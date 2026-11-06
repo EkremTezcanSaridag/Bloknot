@@ -60,6 +60,31 @@ describe('not işlemleri', () => {
     expect(blocks[0].html).toBe('Yeni başlık')
   })
 
+  it('tek bir bloğu birden fazla blokla değiştirir', () => {
+    const id = useStore.getState().createNote({ title: 'Çoklu blok' })
+    const first = useStore.getState().notes[0].blocks[0]
+    const lastId = useStore.getState().addBlock(
+      id,
+      { type: 'paragraph', html: 'son blok' },
+      first.id,
+    )
+
+    const inserted = useStore.getState().replaceBlockWithBlocks(id, first.id, [
+      { type: 'heading1', html: 'Ana başlık' },
+      { type: 'paragraph', html: 'Açıklama' },
+    ])
+
+    const blocks = useStore.getState().notes[0].blocks
+    expect(inserted).toHaveLength(2)
+    expect(blocks.map((block) => block.type)).toEqual([
+      'heading1',
+      'paragraph',
+      'paragraph',
+    ])
+    expect(blocks[2].id).toBe(lastId)
+    expect(blocks[0].html).toBe('Ana başlık')
+  })
+
   it('yapılacak durumunu değiştirir', () => {
     const id = useStore.getState().createNote({ title: 'Görev' })
     const block = useStore.getState().notes[0].blocks[0]

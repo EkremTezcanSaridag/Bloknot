@@ -62,6 +62,11 @@ interface Store {
   addBlock: (noteId: string, block: Partial<Block> & { type: BlockType }, afterId?: string) => string
   insertBlocks: (noteId: string, blocks: Array<Partial<Block> & { type: BlockType }>, afterId?: string) => string[]
   replaceBlocks: (noteId: string, blocks: Array<Partial<Block> & { type: BlockType }>) => string[]
+  replaceBlockWithBlocks: (
+    noteId: string,
+    blockId: string,
+    blocks: Array<Partial<Block> & { type: BlockType }>,
+  ) => string[]
   updateBlock: (noteId: string, blockId: string, patch: Partial<Block>) => void
   removeBlock: (noteId: string, blockId: string) => void
   moveBlock: (noteId: string, activeId: string, overId: string) => void
@@ -390,6 +395,26 @@ export const useStore = create<Store>()(
               ? { ...note, blocks: created, updatedAt: Date.now() }
               : note,
           ),
+        }))
+
+        return created.map((block) => block.id)
+      },
+
+      replaceBlockWithBlocks: (noteId, blockId, blocks) => {
+        const created = blocks.length
+          ? blocks.map((block) => normalizeBlock(block))
+          : [newBlock('paragraph')]
+
+        set((state) => ({
+          notes: state.notes.map((note) => {
+            if (note.id !== noteId) return note
+            const index = note.blocks.findIndex((block) => block.id === blockId)
+            if (index < 0) return note
+
+            const next = [...note.blocks]
+            next.splice(index, 1, ...created)
+            return { ...note, blocks: next, updatedAt: Date.now() }
+          }),
         }))
 
         return created.map((block) => block.id)

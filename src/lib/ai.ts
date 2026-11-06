@@ -368,7 +368,7 @@ const BLOCK_TYPE_HINTS: Partial<Record<BlockType, string>> = {
 }
 
 /** Tek bir bloğu düzeltmek için AI istemi üretir. */
-export function buildBlockPrompt(type: BlockType, text: string): string {
+export function buildBlockPrompt(type: BlockType, text: string, extraPrompt = ''): string {
   const hint = BLOCK_TYPE_HINTS[type] ?? 'metin'
   const extra =
     type === 'heading1' || type === 'heading2' || type === 'heading3'
@@ -378,14 +378,41 @@ export function buildBlockPrompt(type: BlockType, text: string): string {
         : type === 'todo'
           ? 'Yapılacak işi kısa ve net tut.'
           : 'Metni tek satırda tut.'
+  const custom = extraPrompt.trim() ? `\nEk istek: ${extraPrompt.trim()}` : ''
 
   return (
     `Aşağıdaki ${hint} metnini Türkçe yazım, dilbilgisi ve anlatım açısından düzelt. ` +
     'Anlamı değiştirme, yeni bilgi ekleme, metni gereksiz uzatma. ' +
     'Yalnızca düzeltilmiş metni döndür; açıklama, tırnak, başlık işareti (#), ' +
-    `madde işareti (-), numara veya kod bloğu ekleme. ${extra}\n\n` +
+    `madde işareti (-), numara veya kod bloğu ekleme. ${extra}${custom}\n\n` +
     `METİN:\n${text.trim()}`
   )
+}
+
+/** Boş veya dolu bir bloktan yeni, çok bloklu içerik üretmek için AI istemi. */
+export function buildBlockGeneratePrompt(
+  type: BlockType,
+  text: string,
+  prompt: string,
+): string {
+  const hint = BLOCK_TYPE_HINTS[type] ?? 'metin'
+  const context = text.trim() ? `\n\nMEVCUT BLOK (${hint}):\n${text.trim()}` : ''
+
+  return (
+    'Kullanıcının isteğine göre not içeriği oluştur. ' +
+    'Yanıtı yalnızca Markdown olarak ver; giriş cümlesi, özür, açıklama veya kod bloğu ekleme. ' +
+    'Gerekirse birden fazla blok üret: ana başlık için #, alt başlık için ## veya ###, ' +
+    'açıklama için düz paragraf, listeler için - veya 1. kullan. ' +
+    'Başlıkları kısa tut ve her alt başlığın altına en az bir kısa açıklama yaz. ' +
+    `\n\nİSTEK:\n${prompt.trim()}${context}`
+  )
+}
+
+/** AI'ın ürettiği Markdown'ı saran kod bloğunu temizler. */
+export function cleanGeneratedMarkdown(text: string): string {
+  const trimmed = text.trim()
+  const fenced = trimmed.match(/^```(?:markdown|md)?\s*\r?\n([\s\S]*?)\r?\n```$/i)
+  return (fenced ? fenced[1] : trimmed).trim()
 }
 
 /** AI'ın blok için döndürdüğü metni temizler. */

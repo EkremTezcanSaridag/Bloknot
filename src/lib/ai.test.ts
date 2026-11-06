@@ -3,10 +3,12 @@ import type { Note } from '../types'
 import {
   AI_PROVIDERS,
   blockAiTextToHtml,
+  buildBlockGeneratePrompt,
   buildBlockPrompt,
   buildPrompt,
   chatComplete,
   chatEndpoint,
+  cleanGeneratedMarkdown,
   extractMermaid,
   mermaidInkUrl,
   pollinationsUrl,
@@ -163,5 +165,38 @@ describe('blok düzeltme', () => {
 
   it('AI metnindeki HTML i etkisizleştirir', () => {
     expect(blockAiTextToHtml('<script>alert(1)</script>')).not.toContain('<script>')
+  })
+
+  it('düzeltme istemine kullanıcı isteğini ekler', () => {
+    const prompt = buildBlockPrompt('paragraph', 'metin', 'daha resmi olsun')
+    expect(prompt).toContain('daha resmi olsun')
+    expect(prompt).toContain('Ek istek:')
+  })
+})
+
+describe('blok içeriği üretme', () => {
+  it('istemden çok bloklu Markdown üretimi ister', () => {
+    const prompt = buildBlockGeneratePrompt(
+      'paragraph',
+      '',
+      'AI hakkında bir başlık aç ve alt başlıklarda açıklama yap',
+    )
+    expect(prompt).toContain('AI hakkında bir başlık aç')
+    expect(prompt).toContain('Yanıtı yalnızca Markdown')
+    expect(prompt).toContain('ana başlık için #')
+    expect(prompt).not.toContain('MEVCUT BLOK')
+  })
+
+  it('dolu bloktaki mevcut metni bağlam olarak ekler', () => {
+    const prompt = buildBlockGeneratePrompt('paragraph', 'eski metin', 'genişlet')
+    expect(prompt).toContain('MEVCUT BLOK')
+    expect(prompt).toContain('eski metin')
+  })
+
+  it('AI yanıtını saran kod bloğunu temizler', () => {
+    expect(cleanGeneratedMarkdown('```markdown\n# Başlık\n\nAçıklama\n```')).toBe(
+      '# Başlık\n\nAçıklama',
+    )
+    expect(cleanGeneratedMarkdown('# Başlık\n\nAçıklama')).toBe('# Başlık\n\nAçıklama')
   })
 })

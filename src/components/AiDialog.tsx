@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType, type CSSProperties } from 'react'
 import {
   AlertTriangle,
   ArrowRight,
@@ -462,13 +462,28 @@ export function AiDialog() {
                     </span>
                     <span className="relative block">
                       <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-faint)]" />
+                      {/*
+                        Gerçek bir şifre alanı kullanmıyoruz. API anahtarı bir
+                        oturum parolası değil; type="password" alanı tarayıcıların
+                        phishing/parola yöneticisi sezgilerini gereksiz yere
+                        tetikleyebiliyor. Görsel maskeleme webkit-text-security ile.
+                      */}
                       <input
-                        type={showKey ? 'text' : 'password'}
+                        type="text"
                         value={apiKey}
                         onChange={(event) => updateKey(event.target.value)}
                         placeholder={provider.id === 'groq' ? 'gsk_…' : 'sk-…'}
                         autoComplete="off"
+                        name="bloknot-ai-key"
                         spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore
+                        aria-label="API anahtarı"
+                        style={
+                          showKey
+                            ? undefined
+                            : ({ WebkitTextSecurity: 'disc' } as CSSProperties)
+                        }
                         className={`${inputClass} pl-9 pr-10`}
                       />
                       <button
