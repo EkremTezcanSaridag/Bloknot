@@ -1,13 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Note } from '../types'
 import {
   AI_PROVIDERS,
   buildPrompt,
+  chatComplete,
   chatEndpoint,
   extractMermaid,
   mermaidInkUrl,
   pollinationsUrl,
 } from './ai'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 const note: Note = {
   id: 'n1',
@@ -101,5 +106,33 @@ describe('istek üretimi', () => {
 
   it('görsel isteminde doğrudan tarifi döndürür', () => {
     expect(buildPrompt('image', note, 'pastel tilki', true)).toBe('pastel tilki')
+  })
+
+  it('Groq isteğinde max_completion_tokens ve anahtarı gönderir', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ choices: [{ message: { content: 'tamam' } }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+
+    const result = await chatComplete(
+      {
+        provider: 'groq',
+        baseUrl: 'https://api.groq.com/openai/v1',
+        model: 'openai/gpt-oss-120b',
+        apiKey: 'gsk_test',
+      },
+      [{ role: 'user', content: 'selam' }],
+    )
+
+    expect(result).toBe('tamam')
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>
+    expect(body.max_completion_tokens).toBe(1400)
+    expect(body.max_tokens).toBeUndefined()
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer gsk_test')
   })
 })

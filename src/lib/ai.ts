@@ -130,16 +130,21 @@ export async function chatComplete(
     if (config.apiKey.trim()) headers.Authorization = `Bearer ${config.apiKey.trim()}`
     if (config.provider === 'openrouter') headers['X-Title'] = 'Bloknot'
 
+    const maxTokens = options.maxTokens ?? 1400
+    const body: Record<string, unknown> = {
+      model: config.model.trim(),
+      messages,
+      temperature: options.temperature ?? 0.35,
+      stream: false,
+    }
+    // Groq, max_tokens yerine max_completion_tokens kullanıyor.
+    if (config.provider === 'groq') body.max_completion_tokens = maxTokens
+    else body.max_tokens = maxTokens
+
     const response = await fetch(chatEndpoint(config.baseUrl), {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        model: config.model.trim(),
-        messages,
-        temperature: options.temperature ?? 0.35,
-        max_tokens: options.maxTokens ?? 1400,
-        stream: false,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     })
 
