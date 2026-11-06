@@ -53,7 +53,7 @@ Paylaşım bağlantılarında not içeriği sıkıştırılmış olarak URL'nin 
 
 ## AI Asistan
 
-Sağ üstteki **AI** düğmesiyle notunu düzeltebilir, özetleyebilir, başlık/listelere bölebilir, fikir üretebilir, Mermaid şeması çizebilir veya anahtarsız AI görseli üretebilirsin. Sonuçları nota ekleyebilir ya da notun tamamını değiştirebilirsin.
+Sağ üstteki **AI** düğmesiyle notunu düzeltebilir, özetleyebilir, başlık/listelere bölebilir, fikir üretebilir, Mermaid şeması çizebilir veya anahtarsız AI görseli üretebilirsin. Sonuçları nota ekleyebilir ya da notun tamamını değiştirebilirsin. Ayrıca her bloğun sağ üstünde beliren **✨ AI** düğmesiyle yalnızca o bloğu düzelttirebilir, öneriyi görüp tek tıkla uygulayabilirsin.
 
 **Paylaşımlı anahtar (herkes için tek anahtar):**
 
