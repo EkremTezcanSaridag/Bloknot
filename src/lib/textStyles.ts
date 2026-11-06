@@ -13,6 +13,19 @@ export interface TextStyleOption {
 export const TEXT_SIZE_CLASS_PREFIX = 'bn-text-size-'
 export const TEXT_COLOR_CLASS_PREFIX = 'bn-text-color-'
 
+/**
+ * Punto ayarı için tek bir sınıf + doğrulanmış CSS değişkeni kullanılır.
+ * Böylece serbest CSS kabul etmeden 6–200 pt arası değerler saklanabilir.
+ */
+export const TEXT_POINT_CLASS = 'bn-text-pt'
+export const TEXT_POINT_STYLE_PROPERTY = '--bn-text-pt'
+export const TEXT_POINT_MIN = 6
+export const TEXT_POINT_MAX = 200
+
+/** Menüde hızlı seçim için yaygın punto değerleri. */
+export const TEXT_POINT_SIZES = [10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48] as const
+
+/** Eski notlar ve paylaşılan bağlantılarla geriye dönük uyumluluk için. */
 export const TEXT_SIZE_OPTIONS: TextStyleOption[] = [
   { id: 'sm', label: 'Küçük', className: 'bn-text-size-sm', preview: '0.82em' },
   { id: 'md', label: 'Normal', className: '', preview: '1em' },
@@ -40,7 +53,9 @@ export const TEXT_COLOR_OPTIONS: TextColorOption[] = [
 ]
 
 export const ALLOWED_TEXT_STYLE_CLASSES = new Set(
-  [...TEXT_SIZE_OPTIONS, ...TEXT_COLOR_OPTIONS]
-    .map((option) => option.className)
-    .filter(Boolean),
+  [
+    ...TEXT_SIZE_OPTIONS.map((option) => option.className),
+    ...TEXT_COLOR_OPTIONS.map((option) => option.className),
+    TEXT_POINT_CLASS,
+  ].filter(Boolean),
 )

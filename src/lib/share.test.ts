@@ -52,6 +52,16 @@ describe('encodeNote / decodeSharedNote', () => {
     )
   })
 
+  it('punto ayarını paylaşımda korur', () => {
+    const note = sampleNote()
+    note.blocks[0].html = '<span class="bn-text-pt" style="--bn-text-pt: 18pt">büyük</span>'
+
+    const decoded = decodeSharedNote(encodeNote(note).token)
+    expect(decoded?.blocks[0].html).toBe(
+      '<span class="bn-text-pt" style="--bn-text-pt: 18pt">büyük</span>',
+    )
+  })
+
   it('paylaşım verisinde blok kimliklerini taşımaz', () => {
     const token = encodeNote(sampleNote()).token
     const raw = LZString.decompressFromEncodedURIComponent(token)

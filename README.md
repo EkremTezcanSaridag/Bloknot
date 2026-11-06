@@ -51,7 +51,7 @@ Notlar **IndexedDB** içinde, yalnızca bu tarayıcıda tutulur. Tarayıcı veri
 
 Paylaşım bağlantılarında not içeriği sıkıştırılmış olarak URL'nin `#/p/...` kısmında taşınır. Yani paylaşılan not bir sunucuya yüklenmez; bağlantıyı alan kişi içeriği kendi tarayıcısında açar. Genel adreslerde paylaşım bağlantısı her zaman HTTPS olarak üretilir.
 
-Metinde seçim yapınca açılan biçimlendirme çubuğundan yazı boyutunu ve rengini değiştirebilirsin. Bu stiller serbest CSS yerine yalnızca izin verilen güvenli sınıflarla saklanır; paylaşılan notlarda da görünür.
+Metinde seçim yapınca açılan biçimlendirme çubuğundan yazı **puntosunu** ve rengini değiştirebilirsin. Punto menüsü 6–200 pt arasını destekler; hızlı seçeneklerin yanında serbest değer de girilebilir. Bu stiller serbest CSS yerine yalnızca izin verilen güvenli sınıf ve doğrulanmış punto değişkeniyle saklanır; paylaşılan notlarda da görünür.
 
 ## AI Asistan
 

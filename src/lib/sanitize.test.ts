@@ -46,6 +46,37 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml('<span style="color:red">metin</span>')).toBe('metin')
     expect(sanitizeHtml('<span class="text-size-huge">metin</span>')).toBe('metin')
   })
+
+  it('punto değerini ve rengi birlikte korur', () => {
+    expect(
+      sanitizeHtml(
+        '<span class="bn-text-pt bn-text-color-red" style="--bn-text-pt: 13.5pt">metin</span>',
+      ),
+    ).toBe(
+      '<span class="bn-text-pt bn-text-color-red" style="--bn-text-pt: 13.5pt">metin</span>',
+    )
+  })
+
+  it('punto dışındaki stilleri ve izinsiz sınıfları temizler', () => {
+    expect(
+      sanitizeHtml('<span class="bn-text-pt" style="--bn-text-pt: 13pt; color:red">metin</span>'),
+    ).toBe('metin')
+  })
+
+  it('punto aralığını 6–200 pt ile sınırlar', () => {
+    expect(
+      sanitizeHtml('<span class="bn-text-pt" style="--bn-text-pt: 4pt">metin</span>'),
+    ).toBe('metin')
+    expect(
+      sanitizeHtml('<span class="bn-text-pt" style="--bn-text-pt: 500pt">metin</span>'),
+    ).toBe('metin')
+  })
+
+  it('punto sınıfı olmayan stili korumaz', () => {
+    expect(
+      sanitizeHtml('<span class="bn-text-color-red" style="--bn-text-pt: 13pt">metin</span>'),
+    ).toBe('<span class="bn-text-color-red">metin</span>')
+  })
 })
 
 describe('htmlToText', () => {

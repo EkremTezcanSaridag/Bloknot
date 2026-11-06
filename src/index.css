@@ -198,6 +198,11 @@ textarea {
   line-height: inherit;
 }
 
+.bn-text-pt {
+  font-size: var(--bn-text-pt, 12pt);
+  line-height: inherit;
+}
+
 .bn-text-color-accent {
   color: var(--accent);
 }

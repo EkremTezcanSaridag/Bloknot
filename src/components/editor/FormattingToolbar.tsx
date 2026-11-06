@@ -7,15 +7,18 @@ import {
   Link2,
   Palette,
   Strikethrough,
-  Type,
   Underline,
 } from 'lucide-react'
 import { escapeHtml } from '../../lib/sanitize'
 import {
   TEXT_COLOR_CLASS_PREFIX,
   TEXT_COLOR_OPTIONS,
+  TEXT_POINT_CLASS,
+  TEXT_POINT_MAX,
+  TEXT_POINT_MIN,
+  TEXT_POINT_SIZES,
+  TEXT_POINT_STYLE_PROPERTY,
   TEXT_SIZE_CLASS_PREFIX,
-  TEXT_SIZE_OPTIONS,
 } from '../../lib/textStyles'
 
 interface Position {
@@ -23,11 +26,12 @@ interface Position {
   left: number
 }
 
-type Menu = 'size' | 'color' | null
+type Menu = 'point' | 'color' | null
 
 export function FormattingToolbar() {
   const [position, setPosition] = useState<Position | null>(null)
   const [menu, setMenu] = useState<Menu>(null)
+  const [pointValue, setPointValue] = useState('12')
   const savedRange = useRef<Range | null>(null)
   const interacting = useRef(false)
   const interactionTimer = useRef<number | null>(null)
@@ -45,6 +49,10 @@ export function FormattingToolbar() {
       // Toolbar düğmesine dokunurken seçim geçici olarak kaybolabilir.
       // Bu kısa sürede toolbar'ı kapatma; kaydedilmiş aralığı kullan.
       if (interacting.current) return
+
+      // Punto kutusuna yazarken metin seçimi kaybolur; toolbar açık kalsın.
+      const active = document.activeElement
+      if (active instanceof Element && active.closest('[role="toolbar"]')) return
 
       const selection = window.getSelection()
       if (!selection || selection.isCollapsed || !selection.rangeCount) {
@@ -205,6 +213,111 @@ export function FormattingToolbar() {
     sync(savedRange.current)
   }
 
+  const clearSizeStyle = (span: HTMLSpanElement) => {
+    span.classList.remove(TEXT_POINT_CLASS)
+    for (const item of Array.from(span.classList)) {
+      if (item.startsWith(TEXT_SIZE_CLASS_PREFIX)) span.classList.remove(item)
+    }
+    span.style.removeProperty(TEXT_POINT_STYLE_PROPERTY)
+    if (!span.getAttribute('style')?.trim()) span.removeAttribute('style')
+  }
+
+  /**
+   * Seçili metne punto uygular. null verilirse hem punto hem eski göreli
+   * boyut sınıfları temizlenir. Değer 6–200 pt aralığına sıkıştırılır.
+   */
+  const closestSizeSpan = (node: Node, editable: Element): HTMLSpanElement | null => {
+    let element = node instanceof Element ? node : node.parentElement
+    while (element && element !== editable) {
+      if (element instanceof HTMLSpanElement) {
+        const hasSize =
+          element.classList.contains(TEXT_POINT_CLASS) ||
+          Array.from(element.classList).some((className) =>
+            className.startsWith(TEXT_SIZE_CLASS_PREFIX),
+          )
+        if (hasSize) return element
+      }
+      element = element.parentElement
+    }
+    return null
+  }
+
+  /** Seçim tek bir boyut spanının tamamını kaplıyorsa onu yeniden kullan. */
+  const findSizeSpanForRange = (range: Range, editable: Element): HTMLSpanElement | null => {
+    const startSpan = closestSizeSpan(range.startContainer, editable)
+    const endSpan = closestSizeSpan(range.endContainer, editable)
+    if (!startSpan || startSpan !== endSpan) return null
+    return range.toString() === startSpan.textContent ? startSpan : null
+  }
+
+  const applyPointSize = (size: number | null) => {
+    const selection = restoreSelection()
+    if (!selection) return
+
+    const range = selection.getRangeAt(0)
+    const editable = elementForRange(range)?.closest('.editable')
+    if (!editable) return
+
+    const restoreEditorSelection = (next: Range) => {
+      if (editable instanceof HTMLElement) editable.focus({ preventScroll: true })
+      selection.removeAllRanges()
+      selection.addRange(next)
+      savedRange.current = next.cloneRange()
+    }
+
+    if (size !== null) {
+      const normalized = Math.min(
+        TEXT_POINT_MAX,
+        Math.max(TEXT_POINT_MIN, Math.round(size * 2) / 2),
+      )
+
+      const existing = findSizeSpanForRange(range, editable)
+      if (existing) {
+        for (const item of Array.from(existing.classList)) {
+          if (item.startsWith(TEXT_SIZE_CLASS_PREFIX)) existing.classList.remove(item)
+        }
+        existing.classList.add(TEXT_POINT_CLASS)
+        existing.style.setProperty(TEXT_POINT_STYLE_PROPERTY, `${normalized}pt`)
+        setPointValue(String(normalized))
+        restoreEditorSelection(range)
+        sync(savedRange.current)
+        return
+      }
+
+      const fragment = range.extractContents()
+      for (const span of Array.from(fragment.querySelectorAll('span'))) {
+        clearSizeStyle(span)
+      }
+
+      const span = document.createElement('span')
+      span.className = TEXT_POINT_CLASS
+      span.style.setProperty(TEXT_POINT_STYLE_PROPERTY, `${normalized}pt`)
+      span.append(fragment)
+      range.insertNode(span)
+
+      const next = document.createRange()
+      next.selectNodeContents(span)
+      restoreEditorSelection(next)
+      setPointValue(String(normalized))
+    } else {
+      const spans = Array.from(editable.querySelectorAll('span')).filter((span) =>
+        range.intersectsNode(span),
+      )
+      for (const span of spans) clearSizeStyle(span)
+      restoreEditorSelection(range)
+    }
+
+    sync(savedRange.current)
+  }
+
+  const applyPointInput = () => {
+    const raw = pointValue.trim().replace(',', '.')
+    if (!raw) return
+    const value = Number(raw)
+    if (!Number.isFinite(value) || value <= 0) return
+    applyPointSize(value)
+  }
+
   const buttons = [
     { label: 'Kalın', icon: Bold, action: () => run('bold') },
     { label: 'İtalik', icon: Italic, action: () => run('italic') },
@@ -248,49 +361,85 @@ export function FormattingToolbar() {
       <div className="relative shrink-0">
         <button
           type="button"
-          onClick={() => setMenu(menu === 'size' ? null : 'size')}
-          title="Metin boyutu"
-          aria-label="Metin boyutu"
+          onClick={() => setMenu(menu === 'point' ? null : 'point')}
+          title="Punto (metin boyutu)"
+          aria-label="Punto"
           aria-haspopup="menu"
-          aria-expanded={menu === 'size'}
+          aria-expanded={menu === 'point'}
           className={`grid size-8 place-items-center rounded-lg transition hover:bg-[var(--accent-soft)] hover:text-[var(--text)] ${
-            menu === 'size' ? 'bg-[var(--accent-soft)] text-[var(--text)]' : 'text-[var(--text-soft)]'
+            menu === 'point'
+              ? 'bg-[var(--accent-soft)] text-[var(--text)]'
+              : 'text-[var(--text-soft)]'
           }`}
         >
-          <Type className="size-4" />
+          <span className="font-display text-[0.68rem] font-extrabold tracking-tight">pt</span>
         </button>
 
-        {menu === 'size' && (
+        {menu === 'point' && (
           <div
-            className="absolute left-1/2 top-full z-10 mt-1 w-44 -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-pop)]"
+            className="absolute left-1/2 top-full z-10 mt-1 w-56 -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-pop)]"
             role="menu"
-            aria-label="Metin boyutu"
+            aria-label="Punto"
           >
-            <p className="px-2 pb-1 pt-0.5 text-[0.6rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
-              Metin boyutu
+            <p className="px-1 pb-1 text-[0.6rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              Punto
             </p>
-            {TEXT_SIZE_OPTIONS.map((option) => (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={TEXT_POINT_MIN}
+                max={TEXT_POINT_MAX}
+                step={0.5}
+                inputMode="decimal"
+                value={pointValue}
+                onChange={(event) => setPointValue(event.target.value)}
+                onMouseDown={(event) => {
+                  event.stopPropagation()
+                  markInteracting()
+                }}
+                onFocus={markInteracting}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return
+                  event.preventDefault()
+                  applyPointInput()
+                }}
+                aria-label="Punto değeri"
+                className="h-8 w-16 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 text-sm font-bold text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              />
+              <span className="text-[0.65rem] font-bold text-[var(--text-faint)]">pt</span>
               <button
-                key={option.id}
                 type="button"
-                role="menuitem"
-                onClick={() => applyTextStyle(option.className, TEXT_SIZE_CLASS_PREFIX)}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                onClick={applyPointInput}
+                className="ml-auto rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-[0.68rem] font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)]"
               >
-                <span
-                  className="grid size-6 shrink-0 place-items-center font-display font-bold"
-                  style={{ fontSize: option.preview }}
-                >
-                  Aa
-                </span>
-                <span className="text-xs font-bold">{option.label}</span>
-                {!option.className && (
-                  <span className="ml-auto text-[0.6rem] font-semibold text-[var(--text-faint)]">
-                    temizle
-                  </span>
-                )}
+                Uygula
               </button>
-            ))}
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-1">
+              {TEXT_POINT_SIZES.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => applyPointSize(size)}
+                  title={`${size} punto`}
+                  aria-label={`${size} punto`}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-1 py-1.5 text-[0.7rem] font-bold text-[var(--text-soft)] transition hover:border-[var(--accent)] hover:text-[var(--text)]"
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => applyPointSize(null)}
+              className="mt-2 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[0.68rem] font-bold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+            >
+              <Ban className="size-3.5 text-[var(--text-faint)]" />
+              Varsayılan boyut
+            </button>
+            <p className="mt-1 px-1 text-[0.58rem] font-semibold text-[var(--text-faint)]">
+              {TEXT_POINT_MIN}–{TEXT_POINT_MAX} pt arası. Eski boyutlar da temizlenir.
+            </p>
           </div>
         )}
       </div>

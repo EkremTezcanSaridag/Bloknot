@@ -1,4 +1,10 @@
-import { ALLOWED_TEXT_STYLE_CLASSES } from './textStyles'
+import {
+  ALLOWED_TEXT_STYLE_CLASSES,
+  TEXT_POINT_CLASS,
+  TEXT_POINT_MAX,
+  TEXT_POINT_MIN,
+  TEXT_POINT_STYLE_PROPERTY,
+} from './textStyles'
 
 const ALLOWED_TAGS = new Set([
   'B',
@@ -90,17 +96,14 @@ function cleanChildren(parent: Element): void {
         continue
       }
 
-      if (tag === 'SPAN' && attribute.name === 'class') {
-        const allowed = attribute.value
-          .split(/\s+/)
-          .filter((className) => ALLOWED_TEXT_STYLE_CLASSES.has(className))
-        if (allowed.length) element.setAttribute('class', Array.from(new Set(allowed)).join(' '))
-        else element.removeAttribute('class')
+      if (tag === 'SPAN' && (attribute.name === 'class' || attribute.name === 'style')) {
         continue
       }
 
       element.removeAttribute(attribute.name)
     }
+
+    if (tag === 'SPAN') cleanSpanAttributes(element)
 
     if (tag === 'A' && element.getAttribute('href')) {
       element.setAttribute('rel', 'noopener noreferrer')
@@ -113,6 +116,43 @@ function cleanChildren(parent: Element): void {
     if (tag === 'SPAN' && !element.getAttribute('class')) {
       element.replaceWith(...Array.from(element.childNodes))
     }
+  }
+}
+
+/**
+ * Span üzerindeki yalnızca izinli sınıfları ve doğrulanmış punto değişkenini
+ * bırakır. Serbest `style` içeriği hiçbir zaman korunmaz.
+ */
+function cleanSpanAttributes(element: Element): void {
+  const rawClasses = (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
+  const hasPointClass = rawClasses.includes(TEXT_POINT_CLASS)
+  const style = element.getAttribute('style') ?? ''
+  const match = style.match(
+    new RegExp(
+      `^\\s*${TEXT_POINT_STYLE_PROPERTY}\\s*:\\s*(\\d{1,3}(?:\\.\\d)?)pt\\s*;?\\s*$`,
+      'i',
+    ),
+  )
+  const point = match ? Number(match[1]) : Number.NaN
+  const validPoint =
+    hasPointClass && Number.isFinite(point) && point >= TEXT_POINT_MIN && point <= TEXT_POINT_MAX
+
+  if (validPoint) {
+    element.setAttribute('style', `${TEXT_POINT_STYLE_PROPERTY}: ${point}pt`)
+  } else {
+    element.removeAttribute('style')
+  }
+
+  const allowed = rawClasses.filter(
+    (className) =>
+      ALLOWED_TEXT_STYLE_CLASSES.has(className) &&
+      (className !== TEXT_POINT_CLASS || validPoint),
+  )
+
+  if (allowed.length) {
+    element.setAttribute('class', Array.from(new Set(allowed)).join(' '))
+  } else {
+    element.removeAttribute('class')
   }
 }
 
