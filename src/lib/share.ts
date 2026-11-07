@@ -10,6 +10,7 @@ const SHORTENER_ENDPOINTS = [
   'https://v.gd/create.php?format=json&url=',
 ]
 const SHORTENER_TIMEOUT_MS = 6_000
+const MAX_GET_SHORTENER_URL_LENGTH = 3_500
 
 const BLOCK_TYPES = new Set<BlockType>([
   'paragraph',
@@ -165,10 +166,13 @@ export async function createShortShare(token: string): Promise<string | null> {
   const longUrl = `${getBaseUrl()}#/p/${token}`
 
   // Önce herkese açık, kalıcı kısa bağlantı servislerini dene.
-  // Worker henüz yayında değilse veya geçici bellekte tutuyorsa bağlantı kaybolmasın.
-  for (const endpoint of SHORTENER_ENDPOINTS) {
-    const shortUrl = await requestShortener(`${endpoint}${encodeURIComponent(longUrl)}`)
-    if (shortUrl) return shortUrl
+  // is.gd/v.gd yaklaşık 4 KB'tan uzun URL'leri reddediyor; büyük notlarda
+  // doğrudan POST tabanlı servislere geç.
+  if (longUrl.length <= MAX_GET_SHORTENER_URL_LENGTH) {
+    for (const endpoint of SHORTENER_ENDPOINTS) {
+      const shortUrl = await requestShortener(`${endpoint}${encodeURIComponent(longUrl)}`)
+      if (shortUrl) return shortUrl
+    }
   }
 
   const daGdUrl = await requestDaGd(longUrl)

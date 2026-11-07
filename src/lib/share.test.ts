@@ -138,6 +138,22 @@ describe('createShortShare', () => {
     )
   })
 
+  it('büyük notlarda is.gd/v.gd atlanıp da.gd kullanılır', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => 'https://da.gd/abc123',
+    })
+
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    await expect(createShortShare('a'.repeat(5_000))).resolves.toBe('https://da.gd/abc123')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('https://da.gd/s?url='),
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
   it('is.gd, v.gd ve da.gd başarısız olursa spoo.me ile kısaltır', async () => {
     const fetchMock = vi
       .fn()
