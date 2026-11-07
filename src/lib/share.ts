@@ -170,6 +170,9 @@ export async function createShortShare(token: string): Promise<string | null> {
     if (shortUrl) return shortUrl
   }
 
+  const spooUrl = await requestSpooMe(longUrl)
+  if (spooUrl) return spooUrl
+
   return requestWorkerShortener(token)
 }
 
@@ -180,6 +183,26 @@ async function requestShortener(url: string): Promise<string | null> {
 
     const data = (await response.json().catch(() => null)) as { shorturl?: string } | null
     return typeof data?.shorturl === 'string' && data.shorturl ? data.shorturl : null
+  } catch {
+    return null
+  }
+}
+
+async function requestSpooMe(longUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch('https://spoo.me/', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ url: longUrl }).toString(),
+    })
+    if (!response.ok) return null
+
+    const data = (await response.json().catch(() => null)) as { short_url?: string } | null
+    if (typeof data?.short_url !== 'string' || !data.short_url) return null
+    return data.short_url.replace(/^http:\/\//i, 'https://')
   } catch {
     return null
   }
