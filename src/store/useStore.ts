@@ -287,15 +287,29 @@ export const useStore = create<Store>()(
       deleteForever: (noteId) => {
         set((state) => {
           const notes = state.notes.filter((note) => note.id !== noteId)
+          const activeStillExists = notes.some(
+            (note) => note.id === state.activeNoteId && !note.trashedAt,
+          )
           return {
             notes,
-            activeNoteId: state.activeNoteId === noteId ? (notes[0]?.id ?? null) : state.activeNoteId,
+            activeNoteId: activeStillExists
+              ? state.activeNoteId
+              : (notes.find((note) => !note.trashedAt)?.id ?? null),
           }
         })
       },
 
       emptyTrash: () => {
-        set((state) => ({ notes: state.notes.filter((note) => !note.trashedAt) }))
+        set((state) => {
+          const notes = state.notes.filter((note) => !note.trashedAt)
+          const activeStillExists = notes.some((note) => note.id === state.activeNoteId)
+          return {
+            notes,
+            activeNoteId: activeStillExists
+              ? state.activeNoteId
+              : (notes[0]?.id ?? null),
+          }
+        })
       },
 
       duplicateNote: (noteId) => {

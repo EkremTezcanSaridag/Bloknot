@@ -255,6 +255,16 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
                 <span className="hidden sm:inline">Paylaş</span>
               </button>
 
+              <button
+                type="button"
+                onClick={handleTrash}
+                className="grid size-9 place-items-center rounded-xl text-[var(--text-soft)] transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+                aria-label="Notu çöp kutusuna taşı"
+                title="Notu çöp kutusuna taşı"
+              >
+                <Trash2 className="size-4.5" />
+              </button>
+
               <div className="relative" ref={moreRef}>
                 <button
                   type="button"

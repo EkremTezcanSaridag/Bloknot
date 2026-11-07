@@ -34,14 +34,17 @@ export function Sidebar() {
   const setSearch = useStore((state) => state.setSearch)
   const setSidebarOpen = useStore((state) => state.setSidebarOpen)
   const createNote = useStore((state) => state.createNote)
+  const trashNote = useStore((state) => state.trashNote)
   const restoreNote = useStore((state) => state.restoreNote)
   const deleteForever = useStore((state) => state.deleteForever)
+  const emptyTrash = useStore((state) => state.emptyTrash)
   const toggleFavorite = useStore((state) => state.toggleFavorite)
   const openDialog = useStore((state) => state.openDialog)
   const updateSettings = useStore((state) => state.updateSettings)
   const pushToast = useStore((state) => state.pushToast)
 
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmEmptyTrash, setConfirmEmptyTrash] = useState(false)
 
   const activeNotes = useMemo(() => notes.filter((note) => !note.trashedAt), [notes])
   const trashedNotes = useMemo(
@@ -83,6 +86,17 @@ export function Sidebar() {
     const emoji = EMOJI_CHOICES[Math.floor(Math.random() * EMOJI_CHOICES.length)]
     createNote({ emoji })
     if (settings.sounds) playSound('create')
+  }
+
+  const handleTrashNote = (noteId: string) => {
+    trashNote(noteId)
+    pushToast('Not çöp kutusuna taşındı.')
+  }
+
+  const handleEmptyTrash = () => {
+    emptyTrash()
+    setConfirmEmptyTrash(false)
+    pushToast('Çöp kutusu boşaltıldı.', 'danger')
   }
 
   const backupDue =
@@ -224,6 +238,39 @@ export function Sidebar() {
         </p>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
+          {filter.kind === 'trash' && trashedNotes.length > 0 && (
+            <div className="mb-2 flex items-center justify-end gap-1.5 px-1">
+              {confirmEmptyTrash ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleEmptyTrash}
+                    className="inline-flex items-center gap-1 rounded-md bg-[var(--danger)] px-2 py-1 text-[0.65rem] font-bold text-white"
+                  >
+                    <Trash2 className="size-3" />
+                    Eminim, boşalt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmEmptyTrash(false)}
+                    className="rounded-md px-2 py-1 text-[0.65rem] font-bold text-[var(--text-faint)] hover:text-[var(--text)]"
+                  >
+                    Vazgeç
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmEmptyTrash(true)}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.65rem] font-bold text-[var(--text-faint)] transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+                >
+                  <Trash2 className="size-3" />
+                  Çöp kutusunu boşalt
+                </button>
+              )}
+            </div>
+          )}
+
           {displayed.length === 0 && (
             <div className="px-3 py-8 text-center">
               <p className="text-2xl">{filter.kind === 'trash' ? '🗑️' : search ? '🔍' : '🪴'}</p>
@@ -320,6 +367,7 @@ export function Sidebar() {
                         active={note.id === activeNoteId}
                         onClick={() => setActiveNote(note.id)}
                         onFavorite={() => toggleFavorite(note.id)}
+                        onTrash={() => handleTrashNote(note.id)}
                       />
                     ))}
                   </div>
@@ -331,6 +379,7 @@ export function Sidebar() {
                     active={note.id === activeNoteId}
                     onClick={() => setActiveNote(note.id)}
                     onFavorite={() => toggleFavorite(note.id)}
+                    onTrash={() => handleTrashNote(note.id)}
                   />
                 ))}
         </div>
@@ -416,11 +465,13 @@ function NoteItem({
   active,
   onClick,
   onFavorite,
+  onTrash,
 }: {
   note: ReturnType<typeof useStore.getState>['notes'][number]
   active: boolean
   onClick: () => void
   onFavorite: () => void
+  onTrash: () => void
 }) {
   const snippet = noteSnippet(note)
 
@@ -438,7 +489,7 @@ function NoteItem({
       >
         <div className="flex items-start gap-2.5">
           <span className="mt-0.5 text-base leading-none">{note.emoji}</span>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 pr-14">
             <div className="flex items-center gap-1">
               <span className={`truncate text-[13px] ${active ? 'font-extrabold text-[var(--accent)]' : 'font-bold'}`}>
                 {note.title || 'Başlıksız'}
@@ -459,20 +510,33 @@ function NoteItem({
 
       {active && <span className="absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full bg-[var(--accent)]" />}
 
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation()
-          onFavorite()
-        }}
-        className={`absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-md bg-[var(--surface)]/90 text-[var(--text-faint)] shadow-sm transition hover:text-amber-500 ${
-          note.favorite ? 'opacity-0 group-hover/item:opacity-100' : 'opacity-0 group-hover/item:opacity-100'
-        }`}
-        aria-label={note.favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-        title={note.favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-      >
-        <Star className={`size-3 ${note.favorite ? 'fill-amber-400 text-amber-400' : ''}`} />
-      </button>
+      <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onTrash()
+          }}
+          className="note-item-action grid size-6 place-items-center rounded-md bg-[var(--surface)]/90 text-[var(--text-faint)] shadow-sm transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+          aria-label="Notu çöp kutusuna taşı"
+          title="Notu çöp kutusuna taşı"
+        >
+          <Trash2 className="size-3" />
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onFavorite()
+          }}
+          className="note-item-action grid size-6 place-items-center rounded-md bg-[var(--surface)]/90 text-[var(--text-faint)] shadow-sm transition hover:text-amber-500"
+          aria-label={note.favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+          title={note.favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+        >
+          <Star className={`size-3 ${note.favorite ? 'fill-amber-400 text-amber-400' : ''}`} />
+        </button>
+      </div>
     </div>
   )
 }

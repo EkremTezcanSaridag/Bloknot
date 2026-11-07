@@ -376,8 +376,10 @@ textarea {
 
 /* Editör satırı hover kontrolleri */
 .block-row .block-tools,
-.block-row .block-ai-action {
+.block-row .block-ai-action,
+.block-row .block-delete-action {
   opacity: 0;
+  pointer-events: none;
   transition: opacity 120ms ease;
 }
 
@@ -385,14 +387,33 @@ textarea {
 .block-row:focus-within .block-tools,
 .block-row:hover .block-ai-action,
 .block-row:focus-within .block-ai-action,
-.block-row.block-ai-active .block-ai-action {
+.block-row.block-ai-active .block-ai-action,
+.block-row:hover .block-delete-action,
+.block-row:focus-within .block-delete-action {
   opacity: 1;
+  pointer-events: auto;
+}
+
+/* Not listesindeki satır işlemleri */
+.note-item-action {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.group\/item:hover .note-item-action,
+.group\/item:focus-within .note-item-action {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 @media (hover: none) {
   .block-row .block-tools,
-  .block-row .block-ai-action {
+  .block-row .block-ai-action,
+  .block-row .block-delete-action,
+  .note-item-action {
     opacity: 1;
+    pointer-events: auto;
   }
 }
 

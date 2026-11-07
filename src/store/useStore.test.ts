@@ -107,6 +107,31 @@ describe('not işlemleri', () => {
     expect(useStore.getState().activeNoteId).toBe(id)
   })
 
+  it('kalıcı silmede çöpteki notu aktif not olarak bırakmaz', () => {
+    const keepId = useStore.getState().createNote({ title: 'Kalan' })
+    const trashA = useStore.getState().createNote({ title: 'Çöp A' })
+    const trashB = useStore.getState().createNote({ title: 'Çöp B' })
+
+    useStore.getState().trashNote(trashA)
+    useStore.getState().trashNote(trashB)
+    useStore.getState().setActiveNote(trashB)
+    useStore.getState().deleteForever(trashB)
+
+    expect(useStore.getState().activeNoteId).toBe(keepId)
+  })
+
+  it('çöp kutusunu boşaltınca aktif notu silinmiş notta bırakmaz', () => {
+    const keepId = useStore.getState().createNote({ title: 'Kalan' })
+    const trashId = useStore.getState().createNote({ title: 'Çöp' })
+
+    useStore.getState().trashNote(trashId)
+    useStore.getState().setActiveNote(trashId)
+    useStore.getState().emptyTrash()
+
+    expect(useStore.getState().activeNoteId).toBe(keepId)
+    expect(useStore.getState().notes).toHaveLength(1)
+  })
+
   it('kopya oluştururken blok kimliklerini yeniler', () => {
     const id = useStore.getState().createNote({ title: 'Asıl' })
     const sourceBlockId = useStore.getState().notes[0].blocks[0].id

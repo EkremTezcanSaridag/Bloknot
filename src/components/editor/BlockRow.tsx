@@ -722,31 +722,43 @@ export function BlockRow({
         </button>
       </div>
 
-      {canUseBlockAi && (
-        <div className="block-ai-action absolute right-0 top-0.5 z-10 sm:-right-12">
+      {block.type !== 'divider' && (
+        <div className="absolute right-0 top-0.5 z-10 flex items-center gap-1">
           <button
             type="button"
-            onClick={toggleAiPanel}
-            disabled={aiBusy}
-            className={`inline-flex h-6 items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 text-[0.65rem] font-extrabold text-[var(--text-faint)] shadow-[0_4px_12px_-8px_rgba(0,0,0,0.35)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-wait disabled:opacity-70 ${
-              aiBusy || aiPanelOpen ? 'border-[var(--accent)] text-[var(--accent)]' : ''
-            }`}
-            aria-label="Blok AI panelini aç"
-            aria-expanded={aiPanelOpen}
-            title={aiBusy ? 'AI çalışıyor…' : 'AI ile düzelt veya oluştur'}
+            onClick={onDelete}
+            className="block-delete-action grid size-6 place-items-center rounded-md text-[var(--text-faint)] transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+            aria-label="Bloğu sil"
+            title="Bloğu sil"
           >
-            {aiBusy ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="size-3.5" />
-            )}
-            <span className="hidden sm:inline">AI</span>
+            <Trash2 className="size-3.5" />
           </button>
+
+          {canUseBlockAi && (
+            <button
+              type="button"
+              onClick={toggleAiPanel}
+              disabled={aiBusy}
+              className={`block-ai-action inline-flex h-6 items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 text-[0.65rem] font-extrabold text-[var(--text-faint)] shadow-[0_4px_12px_-8px_rgba(0,0,0,0.35)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-wait disabled:opacity-70 ${
+                aiBusy || aiPanelOpen ? 'border-[var(--accent)] text-[var(--accent)]' : ''
+              }`}
+              aria-label="Blok AI panelini aç"
+              aria-expanded={aiPanelOpen}
+              title={aiBusy ? 'AI çalışıyor…' : 'AI ile düzelt veya oluştur'}
+            >
+              {aiBusy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="size-3.5" />
+              )}
+              <span className="hidden sm:inline">AI</span>
+            </button>
+          )}
         </div>
       )}
 
       <div className={block.type === 'divider' ? '' : 'pl-9 sm:pl-0'}>
-        <div className={canUseBlockAi ? 'pr-8 sm:pr-0' : ''}>{renderBody()}</div>
+        <div className={canUseBlockAi ? 'pr-16 sm:pr-20' : 'pr-9'}>{renderBody()}</div>
 
         {aiPanelOpen && (
           <div className="animate-pop mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)]">
