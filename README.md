@@ -15,7 +15,7 @@ Bloknot, tarayıcında çalışan; hesap açmadan kullanabileceğin, blok tabanl
 - **Yedekleme.** JSON yedeği indir/geri yükle, Markdown içe/dışa aktar, son 5 anlık yedeği geri döndür.
 - **Tema ve vurgu rengi.** Açık/koyu/sistem teması ve beş farklı vurgu rengi.
 - **AI asistan.** Notunu düzelt, özetle, şekillendir veya Mermaid şemasına çevir. Groq, OpenRouter, xAI ve OpenAI uyumlu uç noktalar desteklenir.
-- **Slayttan not.** PPTX dosyasından slayt başlıkları, maddeler ve konuşmacı notlarını tarayıcıda çıkar; slayt başına bölüm veya tek not olarak aç.
+- **Slayttan not.** PPTX veya PDF dosyasından slayt başlıkları, maddeler ve konuşmacı notlarını tarayıcıda çıkar; slayt başına bölüm veya tek not olarak aç.
 - **Küçük mutluluklar.** Yapılacak işi tamamlayınca konfeti, hafif arayüz sesleri, ilham soruları.
 - **Çevrimdışı PWA.** Ana ekrana ekle, internet olmadan da yaz.
 - **Mobil uyumlu.** Telefonda da rahat kullanılır.
