@@ -7,8 +7,12 @@ import type { AiProvider } from '../types'
  */
 const FALLBACK_SHARED_GROQ_PROXY_URL = 'https://bloknot-groq.ets123main.workers.dev'
 
+const configuredProxyUrl = (
+  import.meta as { env?: { VITE_GROQ_PROXY_URL?: string } }
+).env?.VITE_GROQ_PROXY_URL
+
 export const SHARED_GROQ_PROXY_URL = (
-  import.meta.env.VITE_GROQ_PROXY_URL || FALLBACK_SHARED_GROQ_PROXY_URL
+  configuredProxyUrl || FALLBACK_SHARED_GROQ_PROXY_URL
 )
   .trim()
   .replace(/\/+$/, '')

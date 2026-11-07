@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { FileText, Loader2, Presentation, Upload } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Modal } from './Modal'
-import { readPptxFile, slidesToBlocks, type PptxDeck } from '../lib/pptx'
+import { readPdfFile, readPptxFile, slidesToBlocks, type SlideDeck } from '../lib/slides'
 
 export function SlideImportDialog() {
   const dialog = useStore((state) => state.dialog)
@@ -11,7 +11,7 @@ export function SlideImportDialog() {
   const pushToast = useStore((state) => state.pushToast)
 
   const [file, setFile] = useState<File | null>(null)
-  const [deck, setDeck] = useState<PptxDeck | null>(null)
+  const [deck, setDeck] = useState<SlideDeck | null>(null)
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
@@ -32,8 +32,12 @@ export function SlideImportDialog() {
   }, [dialog])
 
   const handleFile = async (next: File) => {
-    if (!next.name.toLowerCase().endsWith('.pptx')) {
-      setError('Lütfen bir .pptx dosyası seç.')
+    const lowerName = next.name.toLowerCase()
+    const isPptx = lowerName.endsWith('.pptx')
+    const isPdf = lowerName.endsWith('.pdf')
+
+    if (!isPptx && !isPdf) {
+      setError('Lütfen bir .pptx veya .pdf dosyası seç.')
       return
     }
 
@@ -43,13 +47,13 @@ export function SlideImportDialog() {
     setLoading(true)
 
     try {
-      const parsed = await readPptxFile(next)
+      const parsed = isPdf ? await readPdfFile(next) : await readPptxFile(next)
       if (!parsed.slides.length) {
-        throw new Error('Bu sunumdan metin çıkarlamadım.')
+        throw new Error('Bu dosyadan metin çıkarlamadım.')
       }
       setDeck(parsed)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'PPTX dosyası okunamadı.')
+      setError(caught instanceof Error ? caught.message : 'Dosya okunamadı.')
     } finally {
       setLoading(false)
     }
@@ -84,7 +88,7 @@ export function SlideImportDialog() {
       open={dialog === 'slides'}
       onClose={closeDialog}
       title="Slayttan not"
-      subtitle="PPTX dosyasını sürükle veya seç. Metin tarayıcıda çıkarılır; dosya sunucuya gönderilmez."
+      subtitle="PPTX veya PDF dosyasını sürükle veya seç. Metin tarayıcıda çıkarılır; dosya sunucuya gönderilmez."
       size="lg"
     >
       <div className="space-y-4">
@@ -102,9 +106,9 @@ export function SlideImportDialog() {
           }`}
         >
           <Upload className="mx-auto size-6 text-[var(--accent-strong)]" />
-          <p className="mt-2 text-sm font-extrabold">PPTX dosyasını buraya sürükle</p>
+          <p className="mt-2 text-sm font-extrabold">PPTX veya PDF dosyasını buraya sürükle</p>
           <p className="mt-1 text-xs font-semibold text-[var(--text-faint)]">
-            veya dosya seç. İlk sürümde yalnızca .pptx desteklenir.
+            veya dosya seç. Metin tarayıcıda çıkarılır.
           </p>
           <div className="mt-3 flex justify-center">
             <button
@@ -119,7 +123,7 @@ export function SlideImportDialog() {
           <input
             ref={inputRef}
             type="file"
-            accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            accept=".pptx,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf"
             className="hidden"
             onChange={(event) => {
               const next = event.target.files?.[0]
@@ -180,15 +184,17 @@ export function SlideImportDialog() {
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
-              <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--text-soft)]">
-                <input
-                  type="checkbox"
-                  checked={includeNotes}
-                  onChange={(event) => setIncludeNotes(event.target.checked)}
-                  className="size-4 accent-[var(--accent)]"
-                />
-                Konuşmacı notlarını da al
-              </label>
+              {deck.slides.some((slide) => slide.notes.length) && (
+                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--text-soft)]">
+                  <input
+                    type="checkbox"
+                    checked={includeNotes}
+                    onChange={(event) => setIncludeNotes(event.target.checked)}
+                    className="size-4 accent-[var(--accent)]"
+                  />
+                  Konuşmacı notlarını da al
+                </label>
+              )}
 
               <label className="block">
                 <span className="mb-1 block text-[0.62rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">

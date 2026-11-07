@@ -3,22 +3,22 @@ import { newBlock } from './markdown'
 import { escapeHtml } from './sanitize'
 import type { Block } from '../types'
 
-export interface PptxTextItem {
+export interface SlideTextItem {
   text: string
   bullet: boolean
   level: number
 }
 
-export interface PptxSlide {
+export interface Slide {
   number: number
   title: string
-  items: PptxTextItem[]
+  items: SlideTextItem[]
   notes: string[]
 }
 
-export interface PptxDeck {
+export interface SlideDeck {
   title: string
-  slides: PptxSlide[]
+  slides: Slide[]
 }
 
 function parseXml(text: string): Document {
@@ -89,7 +89,7 @@ function paragraphText(paragraph: Element): string {
     .trim()
 }
 
-function parseParagraph(paragraph: Element): PptxTextItem | null {
+function parseParagraph(paragraph: Element): SlideTextItem | null {
   const text = paragraphText(paragraph)
   if (!text) return null
 
@@ -179,7 +179,7 @@ async function parseSlide(
   zip: JSZip,
   slidePath: string,
   number: number,
-): Promise<PptxSlide> {
+): Promise<Slide> {
   const slideXml = await zip.file(slidePath)?.async('string')
   if (!slideXml) {
     return { number, title: `Slayt ${number}`, items: [], notes: [] }
@@ -188,7 +188,7 @@ async function parseSlide(
   const document = parseXml(slideXml)
   const shapes = allByLocalName(document, 'sp')
   let title = ''
-  const items: PptxTextItem[] = []
+  const items: SlideTextItem[] = []
 
   for (const shape of shapes) {
     const placeholder = firstByLocalName(shape, 'ph')
@@ -199,7 +199,7 @@ async function parseSlide(
 
     const paragraphs = allByLocalName(textBody, 'p')
       .map(parseParagraph)
-      .filter((item): item is PptxTextItem => Boolean(item))
+      .filter((item): item is SlideTextItem => Boolean(item))
 
     if (isTitle) {
       if (!title && paragraphs.length) {
@@ -231,10 +231,10 @@ async function parseSlide(
 export async function parsePptxArchive(
   zip: JSZip,
   deckTitle = 'Slayt notu',
-): Promise<PptxDeck> {
+): Promise<SlideDeck> {
   const coreTitle = await getCoreTitle(zip)
   const slidePaths = await getSlidePaths(zip)
-  const slides: PptxSlide[] = []
+  const slides: Slide[] = []
 
   for (let index = 0; index < slidePaths.length; index += 1) {
     slides.push(await parseSlide(zip, slidePaths[index], index + 1))
@@ -246,14 +246,96 @@ export async function parsePptxArchive(
   }
 }
 
-export async function readPptxFile(file: File): Promise<PptxDeck> {
+export async function readPptxFile(file: File): Promise<SlideDeck> {
   const { default: JSZip } = await import('jszip')
   const zip = await JSZip.loadAsync(await file.arrayBuffer())
   return parsePptxArchive(zip, file.name.replace(/\.[^.]+$/, '') || 'Slayt notu')
 }
 
+interface PdfTextItem {
+  str: string
+  x: number
+  y: number
+}
+
+const PDF_BULLET_MARKER = /^[\u2022\u25CF\u25CB\u25AA\u25AB\-\*\u2013\u2014]\s+/
+
+export function groupPdfTextItems(items: PdfTextItem[]): string[] {
+  const sorted = [...items].sort((left, right) => right.y - left.y || left.x - right.x)
+  const lines: { y: number; items: PdfTextItem[] }[] = []
+
+  for (const item of sorted) {
+    const last = lines[lines.length - 1]
+    if (last && Math.abs(last.y - item.y) <= 4) {
+      last.items.push(item)
+    } else {
+      lines.push({ y: item.y, items: [item] })
+    }
+  }
+
+  return lines
+    .map((line) =>
+      line.items
+        .sort((left, right) => left.x - right.x)
+        .map((item) => item.str)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
+    .filter(Boolean)
+}
+
+export function pdfLinesToSlide(number: number, lines: string[]): Slide {
+  const title = lines[0] || `Sayfa ${number}`
+  const items = lines.slice(1).map((line) => {
+    const bullet = PDF_BULLET_MARKER.test(line)
+    return {
+      text: bullet ? line.replace(PDF_BULLET_MARKER, '').trim() : line,
+      bullet,
+      level: 0,
+    }
+  })
+
+  if (!items.length) {
+    items.push({ text: 'Bu sayfada metin bulunamadı.', bullet: false, level: 0 })
+  }
+
+  return { number, title, items, notes: [] }
+}
+
+export async function readPdfFile(file: File): Promise<SlideDeck> {
+  const pdfjs = await import('pdfjs-dist')
+  const workerModule = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')) as {
+    default: string
+  }
+  pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default
+
+  const document = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
+  const slides: Slide[] = []
+
+  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+    const page = await document.getPage(pageNumber)
+    const content = await page.getTextContent()
+    const rawItems = content.items as Array<{ str?: string; transform?: number[] }>
+    const items: PdfTextItem[] = rawItems
+      .filter((item) => typeof item.str === 'string' && Array.isArray(item.transform))
+      .map((item) => ({
+        str: item.str as string,
+        x: (item.transform as number[])[4] ?? 0,
+        y: (item.transform as number[])[5] ?? 0,
+      }))
+
+    slides.push(pdfLinesToSlide(pageNumber, groupPdfTextItems(items)))
+  }
+
+  return {
+    title: file.name.replace(/\.[^.]+$/, '') || 'PDF notu',
+    slides,
+  }
+}
+
 export function slidesToBlocks(
-  deck: PptxDeck,
+  deck: SlideDeck,
   mode: 'sections' | 'single',
   includeNotes = true,
 ): Block[] {
@@ -319,3 +401,8 @@ export function slidesToBlocks(
 
   return blocks
 }
+
+export type PptxTextItem = SlideTextItem
+export type PptxSlide = Slide
+export type PptxDeck = SlideDeck
+
