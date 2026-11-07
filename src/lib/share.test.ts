@@ -34,6 +34,31 @@ describe('encodeNote / decodeSharedNote', () => {
     expect(decoded?.blocks[1].checked).toBe(true)
   })
 
+  it('uzun notun tamamını paylaşır', () => {
+    const note = sampleNote()
+    const words = Array.from({ length: 4_500 }, (_, index) => `kelime${index}`).join(' ')
+    note.blocks = [{ id: 'b1', type: 'paragraph', html: words }]
+
+    const decoded = decodeSharedNote(encodeNote(note).token)
+
+    expect(decoded?.blocks[0].html).toBe(words)
+    expect(decoded?.blocks[0].html.split(/\s+/)).toHaveLength(4_500)
+  })
+
+  it('çok sayıda bloğu kesmeden paylaşır', () => {
+    const note = sampleNote()
+    note.blocks = Array.from({ length: 450 }, (_, index) => ({
+      id: `b${index}`,
+      type: 'paragraph' as const,
+      html: `blok ${index}`,
+    }))
+
+    const decoded = decodeSharedNote(encodeNote(note).token)
+
+    expect(decoded?.blocks).toHaveLength(450)
+    expect(decoded?.blocks[449].html).toBe('blok 449')
+  })
+
   it('paylaşılan HTML’i temizler', () => {
     const note = sampleNote()
     note.blocks[0].html = '<script>alert(1)</script><b>güvenli</b>'

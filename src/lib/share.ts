@@ -5,6 +5,8 @@ import { sanitizeHtml } from './sanitize'
 import { SHARED_GROQ_PROXY_URL } from './aiConfig'
 
 const MAX_TOKEN_LENGTH = 48_000
+const MAX_DECOMPRESSED_LENGTH = 4_000_000
+const MAX_SHARED_BLOCKS = 5_000
 const SHORTENER_ENDPOINTS = [
   'https://is.gd/create.php?format=json&url=',
   'https://v.gd/create.php?format=json&url=',
@@ -76,7 +78,7 @@ export function decodeSharedNote(token: string): SharedNote | null {
   try {
     if (!token || token.length > MAX_TOKEN_LENGTH * 4) return null
     const raw = LZString.decompressFromEncodedURIComponent(token)
-    if (!raw) return null
+    if (!raw || raw.length > MAX_DECOMPRESSED_LENGTH) return null
 
     const data = JSON.parse(raw) as unknown
     if (!data || typeof data !== 'object') return null
@@ -95,7 +97,7 @@ export function decodeSharedNote(token: string): SharedNote | null {
             .slice(0, 12)
         : [],
       blocks: blocks
-        .slice(0, 400)
+        .slice(0, MAX_SHARED_BLOCKS)
         .map((block) => parseBlock(block))
         .filter((block): block is Block => block !== null),
     }
@@ -126,7 +128,7 @@ function parseBlock(raw: unknown): Block | null {
   return {
     id: createId('b'),
     type,
-    html: sanitizeHtml(trimText(record.html, 20_000)),
+    html: sanitizeHtml(trimText(record.html, MAX_DECOMPRESSED_LENGTH)),
     checked: record.checked === true,
     language: typeof record.language === 'string' ? record.language.slice(0, 20) : undefined,
     src: normalizeImageSrc(record.src),
