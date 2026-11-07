@@ -1,7 +1,7 @@
 import LZString from 'lz-string'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Note } from '../types'
-import { baseUrlFor, decodeSharedNote, encodeNote } from './share'
+import { baseUrlFor, createShortShare, decodeSharedNote, encodeNote } from './share'
 
 function sampleNote(): Note {
   return {
@@ -99,6 +99,28 @@ describe('encodeNote / decodeSharedNote', () => {
   it('bozuk token için null döner', () => {
     expect(decodeSharedNote('bozuk-token')).toBeNull()
     expect(decodeSharedNote('')).toBeNull()
+  })
+})
+
+describe('createShortShare', () => {
+  it('kısa bağlantı oluştur endpointini kullanır', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        code: 'abc123',
+        url: 'https://bloknot-groq.ets123main.workers.dev/s/abc123',
+      }),
+    })
+
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    await expect(createShortShare('token')).resolves.toBe(
+      'https://bloknot-groq.ets123main.workers.dev/s/abc123',
+    )
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://bloknot-groq.ets123main.workers.dev/shorts',
+      expect.objectContaining({ method: 'POST' }),
+    )
   })
 })
 

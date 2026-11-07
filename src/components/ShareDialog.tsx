@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, Download, ExternalLink, Info, Link2, Share2, ShieldCheck } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { encodeNote } from '../lib/share'
+import { createShortShare, encodeNote } from '../lib/share'
 import { copyText } from '../lib/clipboard'
 import { downloadText, noteToMarkdown, slugify } from '../lib/markdown'
 import { noteSnippet } from '../lib/search'
@@ -14,12 +14,45 @@ export function ShareDialog() {
   const closeDialog = useStore((state) => state.closeDialog)
   const pushToast = useStore((state) => state.pushToast)
 
+  const [shortUrl, setShortUrl] = useState<string | null>(null)
+  const [isCreatingShort, setIsCreatingShort] = useState(false)
+
   const link = useMemo(() => (note ? encodeNote(note) : null), [note])
+
+  useEffect(() => {
+    setShortUrl(null)
+    setIsCreatingShort(false)
+  }, [shareNoteId])
 
   if (!note || !link) return null
 
+  const shareUrl = shortUrl ?? link.url
+
+  const createShortLink = async () => {
+    if (!link) return
+
+    setIsCreatingShort(true)
+    try {
+      const url = await createShortShare(link.token)
+      if (url) {
+        setShortUrl(url)
+        const ok = await copyText(url)
+        pushToast(
+          ok ? 'Kısa paylaşım bağlantısı kopyalandı.' : 'Kısa bağlantı kopyalanamadı.',
+          ok ? 'success' : 'danger',
+        )
+      } else {
+        pushToast('Kısa bağlantı oluşturulamadı.', 'danger')
+      }
+    } catch {
+      pushToast('Kısa bağlantı oluşturulamadı.', 'danger')
+    } finally {
+      setIsCreatingShort(false)
+    }
+  }
+
   const copy = async () => {
-    const ok = await copyText(link.url)
+    const ok = await copyText(shareUrl)
     pushToast(
       ok ? 'Paylaşım bağlantısı kopyalandı.' : 'Bağlantı kopyalanamadı.',
       ok ? 'success' : 'danger',
@@ -31,7 +64,7 @@ export function ShareDialog() {
       await navigator.share({
         title: note.title || 'Bloknot notu',
         text: 'Bloknot’ta paylaşılan bir not',
-        url: link.url,
+        url: shareUrl,
       })
     } catch {
       // Kullanıcı paylaşımı iptal etmiş olabilir.
@@ -39,7 +72,7 @@ export function ShareDialog() {
   }
 
   const whatsapp = () => {
-    const text = encodeURIComponent(`${note.title || 'Bir not'} — Bloknot\n${link.url}`)
+    const text = encodeURIComponent(`${note.title || 'Bir not'} — Bloknot\n${shareUrl}`)
     window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer')
   }
 
@@ -97,11 +130,20 @@ export function ShareDialog() {
         <div className="flex gap-2">
           <input
             readOnly
-            value={link.url}
+            value={shareUrl}
             onFocus={(event) => event.currentTarget.select()}
             className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs text-[var(--text-soft)] outline-none focus:border-[var(--accent)]"
             aria-label="Paylaşım bağlantısı"
           />
+          <button
+            type="button"
+            onClick={() => void createShortLink()}
+            disabled={isCreatingShort}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-extrabold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] disabled:opacity-60"
+          >
+            <Link2 className="size-3.5" />
+            {isCreatingShort ? 'Kısa link...' : 'Kısa bağlantı oluştur'}
+          </button>
           <button
             type="button"
             onClick={() => void copy()}

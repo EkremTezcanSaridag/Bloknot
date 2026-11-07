@@ -5,6 +5,8 @@ Bloknot statik bir GitHub Pages uygulaması. Groq anahtarını doğrudan siteye 
 ## Ne yapar?
 
 - `POST /chat/completions` isteklerini Groq'un OpenAI uyumlu uç noktasına iletir.
+- `POST /shorts` kısa bağlantı oluşturur; `{ token }` gönderilir, `{ code, url }` döner.
+- `GET /s/:code` kısa bağlantıyı açar; kayıtlı tokeni paylaşım sayfasına yönlendirir.
 - `GROQ_API_KEY` secret'ını sunucu tarafında ekler; tarayıcıya asla göndermez.
 - Yalnızca `https://ekremtezcansaridag.github.io` ve localhost origin'lerine izin verir.
 - Yalnızca `openai/gpt-oss-120b` ve `openai/gpt-oss-20b` modellerine izin verir.
@@ -61,6 +63,12 @@ curl -i -X OPTIONS "https://bloknot-groq.<hesap-adın>.workers.dev/chat/completi
 ```
 
 `204` ve `Access-Control-Allow-Origin` başlığını görmelisin.
+
+## Kısa paylaşım bağlantıları
+
+- `POST /shorts`: `{ "token": "..." }` göndererek kısa bağlantı oluştur.
+- `GET /s/<code>`: kısa bağlantıyı açıp tokeni `/#/p/<token>` paylaşım sayfasına yönlendirir.
+- Kısa kodlar Worker belleğinde tutulur.
 
 ## Yerel geliştirme
 

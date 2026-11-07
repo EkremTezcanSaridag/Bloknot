@@ -2,6 +2,7 @@ import LZString from 'lz-string'
 import type { Block, BlockType, Cover, Note } from '../types'
 import { createId } from './id'
 import { sanitizeHtml } from './sanitize'
+import { SHARED_GROQ_PROXY_URL } from './aiConfig'
 
 const MAX_TOKEN_LENGTH = 48_000
 
@@ -153,6 +154,20 @@ function normalizeImageSrc(value: unknown): string | undefined {
 
 function trimText(value: unknown, max: number): string {
   return typeof value === 'string' ? value.slice(0, max) : ''
+}
+
+export async function createShortShare(token: string): Promise<string | null> {
+  const response = await fetch(`${SHARED_GROQ_PROXY_URL.replace(/\/+$/, '')}/shorts`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Origin': window.location.origin,
+    },
+    body: JSON.stringify({ token }),
+  })
+
+  const data = (await response.json().catch(() => null)) as { url?: string } | null
+  return typeof data?.url === 'string' && data.url ? data.url : null
 }
 
 function getBaseUrl(): string {
