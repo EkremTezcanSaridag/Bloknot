@@ -118,11 +118,32 @@ describe('createShortShare', () => {
     )
   })
 
-  it('is.gd ve v.gd başarısız olursa spoo.me ile kısaltır', async () => {
+  it('is.gd ve v.gd başarısız olursa da.gd ile kısaltır', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
       .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => 'https://da.gd/abc123',
+      })
+
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    await expect(createShortShare('token')).resolves.toBe('https://da.gd/abc123')
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('https://da.gd/s?url='),
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
+  it('is.gd, v.gd ve da.gd başarısız olursa spoo.me ile kısaltır', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: false, text: async () => '' })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ short_url: 'http://spoo.me/abc123' }),
@@ -132,7 +153,7 @@ describe('createShortShare', () => {
 
     await expect(createShortShare('token')).resolves.toBe('https://spoo.me/abc123')
     expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
+      4,
       'https://spoo.me/',
       expect.objectContaining({ method: 'POST' }),
     )
@@ -143,6 +164,7 @@ describe('createShortShare', () => {
       .fn()
       .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
       .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: false, text: async () => '' })
       .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
       .mockResolvedValueOnce({
         ok: true,
@@ -157,7 +179,7 @@ describe('createShortShare', () => {
       'https://bloknot-groq.ets123main.workers.dev/s/abc123',
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      5,
       'https://bloknot-groq.ets123main.workers.dev/shorts',
       expect.objectContaining({ method: 'POST' }),
     )

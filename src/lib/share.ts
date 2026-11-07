@@ -170,6 +170,9 @@ export async function createShortShare(token: string): Promise<string | null> {
     if (shortUrl) return shortUrl
   }
 
+  const daGdUrl = await requestDaGd(longUrl)
+  if (daGdUrl) return daGdUrl
+
   const spooUrl = await requestSpooMe(longUrl)
   if (spooUrl) return spooUrl
 
@@ -183,6 +186,20 @@ async function requestShortener(url: string): Promise<string | null> {
 
     const data = (await response.json().catch(() => null)) as { shorturl?: string } | null
     return typeof data?.shorturl === 'string' && data.shorturl ? data.shorturl : null
+  } catch {
+    return null
+  }
+}
+
+async function requestDaGd(longUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://da.gd/s?url=${encodeURIComponent(longUrl)}`, {
+      method: 'GET',
+    })
+    if (!response.ok) return null
+
+    const shortUrl = (await response.text()).trim()
+    return /^https:\/\/da\.gd\/[A-Za-z0-9]+$/.test(shortUrl) ? shortUrl : null
   } catch {
     return null
   }
