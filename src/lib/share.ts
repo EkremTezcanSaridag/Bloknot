@@ -9,6 +9,7 @@ const SHORTENER_ENDPOINTS = [
   'https://is.gd/create.php?format=json&url=',
   'https://v.gd/create.php?format=json&url=',
 ]
+const SHORTENER_TIMEOUT_MS = 6_000
 
 const BLOCK_TYPES = new Set<BlockType>([
   'paragraph',
@@ -179,9 +180,19 @@ export async function createShortShare(token: string): Promise<string | null> {
   return requestWorkerShortener(token)
 }
 
+async function fetchShortener(input: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), SHORTENER_TIMEOUT_MS)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function requestShortener(url: string): Promise<string | null> {
   try {
-    const response = await fetch(url, { method: 'GET' })
+    const response = await fetchShortener(url, { method: 'GET' })
     if (!response.ok) return null
 
     const data = (await response.json().catch(() => null)) as { shorturl?: string } | null
@@ -193,7 +204,7 @@ async function requestShortener(url: string): Promise<string | null> {
 
 async function requestDaGd(longUrl: string): Promise<string | null> {
   try {
-    const response = await fetch(`https://da.gd/s?url=${encodeURIComponent(longUrl)}`, {
+    const response = await fetchShortener(`https://da.gd/s?url=${encodeURIComponent(longUrl)}`, {
       method: 'GET',
     })
     if (!response.ok) return null
@@ -207,7 +218,7 @@ async function requestDaGd(longUrl: string): Promise<string | null> {
 
 async function requestSpooMe(longUrl: string): Promise<string | null> {
   try {
-    const response = await fetch('https://spoo.me/', {
+    const response = await fetchShortener('https://spoo.me/', {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -227,7 +238,7 @@ async function requestSpooMe(longUrl: string): Promise<string | null> {
 
 async function requestWorkerShortener(token: string): Promise<string | null> {
   try {
-    const response = await fetch(`${SHARED_GROQ_PROXY_URL.replace(/\/+$/, '')}/shorts`, {
+    const response = await fetchShortener(`${SHARED_GROQ_PROXY_URL.replace(/\/+$/, '')}/shorts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
