@@ -103,21 +103,40 @@ describe('encodeNote / decodeSharedNote', () => {
 })
 
 describe('createShortShare', () => {
-  it('kısa bağlantı oluştur endpointini kullanır', async () => {
+  it('is.gd ile kısa bağlantı oluşturur', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        code: 'abc123',
-        url: 'https://bloknot-groq.ets123main.workers.dev/s/abc123',
-      }),
+      json: async () => ({ shorturl: 'https://is.gd/abc123' }),
     })
+
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    await expect(createShortShare('token')).resolves.toBe('https://is.gd/abc123')
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('https://is.gd/create.php?format=json&url='),
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
+  it('is.gd ve v.gd başarısız olursa Worker kısa bağlantısını dener', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          url: 'https://bloknot-groq.ets123main.workers.dev/s/abc123',
+        }),
+      })
 
     global.fetch = fetchMock as unknown as typeof fetch
 
     await expect(createShortShare('token')).resolves.toBe(
       'https://bloknot-groq.ets123main.workers.dev/s/abc123',
     )
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
       'https://bloknot-groq.ets123main.workers.dev/shorts',
       expect.objectContaining({ method: 'POST' }),
     )

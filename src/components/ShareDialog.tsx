@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, Copy, Download, ExternalLink, Info, Link2, Share2, ShieldCheck } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { createShortShare, encodeNote } from '../lib/share'
@@ -16,55 +16,59 @@ export function ShareDialog() {
 
   const [shortUrl, setShortUrl] = useState<string | null>(null)
   const [isCreatingShort, setIsCreatingShort] = useState(false)
+  const [shortError, setShortError] = useState(false)
 
   const link = useMemo(() => (note ? encodeNote(note) : null), [note])
 
-  useEffect(() => {
-    setShortUrl(null)
-    setIsCreatingShort(false)
-  }, [shareNoteId])
-
-  if (!note || !link) return null
-
-  const shareUrl = shortUrl ?? link.url
-
-  const createShortLink = async () => {
+  const createShortLink = useCallback(async () => {
     if (!link) return
 
+    setShortUrl(null)
+    setShortError(false)
     setIsCreatingShort(true)
     try {
       const url = await createShortShare(link.token)
       if (url) {
         setShortUrl(url)
-        const ok = await copyText(url)
-        pushToast(
-          ok ? 'Kısa paylaşım bağlantısı kopyalandı.' : 'Kısa bağlantı kopyalanamadı.',
-          ok ? 'success' : 'danger',
-        )
       } else {
-        pushToast('Kısa bağlantı oluşturulamadı.', 'danger')
+        setShortError(true)
       }
     } catch {
-      pushToast('Kısa bağlantı oluşturulamadı.', 'danger')
+      setShortError(true)
     } finally {
       setIsCreatingShort(false)
     }
-  }
+  }, [link])
+
+  useEffect(() => {
+    if (dialog !== 'share' || !link) {
+      setShortUrl(null)
+      setShortError(false)
+      setIsCreatingShort(false)
+      return
+    }
+
+    void createShortLink()
+  }, [createShortLink, dialog, link])
+
+  if (!note || !link) return null
 
   const copy = async () => {
-    const ok = await copyText(shareUrl)
+    if (!shortUrl) return
+    const ok = await copyText(shortUrl)
     pushToast(
-      ok ? 'Paylaşım bağlantısı kopyalandı.' : 'Bağlantı kopyalanamadı.',
+      ok ? 'Kısa paylaşım bağlantısı kopyalandı.' : 'Bağlantı kopyalanamadı.',
       ok ? 'success' : 'danger',
     )
   }
 
   const nativeShare = async () => {
+    if (!shortUrl) return
     try {
       await navigator.share({
         title: note.title || 'Bloknot notu',
         text: 'Bloknot’ta paylaşılan bir not',
-        url: shareUrl,
+        url: shortUrl,
       })
     } catch {
       // Kullanıcı paylaşımı iptal etmiş olabilir.
@@ -72,7 +76,8 @@ export function ShareDialog() {
   }
 
   const whatsapp = () => {
-    const text = encodeURIComponent(`${note.title || 'Bir not'} — Bloknot\n${shareUrl}`)
+    if (!shortUrl) return
+    const text = encodeURIComponent(`${note.title || 'Bir not'} — Bloknot\n${shortUrl}`)
     window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer')
   }
 
@@ -86,7 +91,6 @@ export function ShareDialog() {
   }
 
   const snippet = noteSnippet(note)
-  const isHttps = link.url.startsWith('https://')
 
   return (
     <Modal
@@ -130,43 +134,55 @@ export function ShareDialog() {
         <div className="flex gap-2">
           <input
             readOnly
-            value={shareUrl}
+            value={shortUrl ?? ''}
+            placeholder={
+              shortError ? 'Kısa bağlantı oluşturulamadı' : 'Kısa bağlantı hazırlanıyor...'
+            }
             onFocus={(event) => event.currentTarget.select()}
             className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs text-[var(--text-soft)] outline-none focus:border-[var(--accent)]"
             aria-label="Paylaşım bağlantısı"
           />
-          <button
-            type="button"
-            onClick={() => void createShortLink()}
-            disabled={isCreatingShort}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-extrabold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] disabled:opacity-60"
-          >
-            <Link2 className="size-3.5" />
-            {isCreatingShort ? 'Kısa link...' : 'Kısa bağlantı oluştur'}
-          </button>
+          {shortError && (
+            <button
+              type="button"
+              onClick={() => void createShortLink()}
+              disabled={isCreatingShort}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-extrabold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] disabled:opacity-60"
+            >
+              <Link2 className="size-3.5" />
+              Tekrar dene
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void copy()}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)]"
+            disabled={!shortUrl || isCreatingShort}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
           >
             <Copy className="size-3.5" />
             Kopyala
           </button>
         </div>
         <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[0.65rem] font-semibold text-[var(--text-faint)]">
-          <ShieldCheck className="size-3.5 text-[var(--success)]" />
-          {isHttps ? 'HTTPS ile açılır' : 'Yerel geliştirme bağlantısı'} ·{' '}
-          {Math.max(1, Math.round(link.length / 1024))} KB · Notun içeriği bağlantının içinde
-          taşınır.
+          <ShieldCheck
+            className={
+              shortError ? 'size-3.5 text-amber-600' : 'size-3.5 text-[var(--success)]'
+            }
+          />
+          {shortUrl
+            ? 'Kısa bağlantı hazır'
+            : shortError
+              ? 'Kısa bağlantı oluşturulamadı, tekrar dene.'
+              : 'Kısa bağlantı hazırlanıyor...'}
         </p>
       </div>
 
-      {link.tooBig && (
+      {shortError && link.tooBig && (
         <div className="mt-4 flex gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-700 dark:text-amber-300">
           <Info className="mt-0.5 size-4 shrink-0" />
           <p>
-            Not çok büyük (görseller bağlantıyı şişiriyor). Bağlantı bazı uygulamalarda açılmayabilir.
-            Görselleri kaldırıp tekrar dene ya da Markdown olarak indir.
+            Not çok büyük olduğu için kısa bağlantı oluşturulamadı. Görselleri kaldırıp tekrar
+            dene ya da Markdown olarak indir.
           </p>
         </div>
       )}
@@ -175,7 +191,8 @@ export function ShareDialog() {
         <button
           type="button"
           onClick={() => void copy()}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-xs font-bold transition hover:bg-[var(--surface-2)]"
+          disabled={!shortUrl || isCreatingShort}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-xs font-bold transition hover:bg-[var(--surface-2)] disabled:opacity-60"
         >
           <Check className="size-4" />
           Bağlantıyı al
@@ -183,7 +200,8 @@ export function ShareDialog() {
         <button
           type="button"
           onClick={whatsapp}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-xs font-bold transition hover:bg-[var(--surface-2)]"
+          disabled={!shortUrl || isCreatingShort}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-xs font-bold transition hover:bg-[var(--surface-2)] disabled:opacity-60"
         >
           <ExternalLink className="size-4" />
           WhatsApp
@@ -192,7 +210,8 @@ export function ShareDialog() {
           <button
             type="button"
             onClick={() => void nativeShare()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-xs font-bold transition hover:bg-[var(--surface-2)]"
+            disabled={!shortUrl || isCreatingShort}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-xs font-bold transition hover:bg-[var(--surface-2)] disabled:opacity-60"
           >
             <Share2 className="size-4" />
             Cihazda paylaş

@@ -5,6 +5,10 @@ import { sanitizeHtml } from './sanitize'
 import { SHARED_GROQ_PROXY_URL } from './aiConfig'
 
 const MAX_TOKEN_LENGTH = 48_000
+const SHORTENER_ENDPOINTS = [
+  'https://is.gd/create.php?format=json&url=',
+  'https://v.gd/create.php?format=json&url=',
+]
 
 const BLOCK_TYPES = new Set<BlockType>([
   'paragraph',
@@ -157,17 +161,44 @@ function trimText(value: unknown, max: number): string {
 }
 
 export async function createShortShare(token: string): Promise<string | null> {
-  const response = await fetch(`${SHARED_GROQ_PROXY_URL.replace(/\/+$/, '')}/shorts`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Origin': window.location.origin,
-    },
-    body: JSON.stringify({ token }),
-  })
+  const longUrl = `${getBaseUrl()}#/p/${token}`
 
-  const data = (await response.json().catch(() => null)) as { url?: string } | null
-  return typeof data?.url === 'string' && data.url ? data.url : null
+  // Önce herkese açık, kalıcı kısa bağlantı servislerini dene.
+  // Worker henüz yayında değilse veya geçici bellekte tutuyorsa bağlantı kaybolmasın.
+  for (const endpoint of SHORTENER_ENDPOINTS) {
+    const shortUrl = await requestShortener(`${endpoint}${encodeURIComponent(longUrl)}`)
+    if (shortUrl) return shortUrl
+  }
+
+  return requestWorkerShortener(token)
+}
+
+async function requestShortener(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, { method: 'GET' })
+    if (!response.ok) return null
+
+    const data = (await response.json().catch(() => null)) as { shorturl?: string } | null
+    return typeof data?.shorturl === 'string' && data.shorturl ? data.shorturl : null
+  } catch {
+    return null
+  }
+}
+
+async function requestWorkerShortener(token: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${SHARED_GROQ_PROXY_URL.replace(/\/+$/, '')}/shorts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+    if (!response.ok) return null
+
+    const data = (await response.json().catch(() => null)) as { url?: string } | null
+    return typeof data?.url === 'string' && data.url ? data.url : null
+  } catch {
+    return null
+  }
 }
 
 function getBaseUrl(): string {
