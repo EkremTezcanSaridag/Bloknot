@@ -186,6 +186,7 @@ export function SlideImportDialog() {
       const improvedSlides: Slide[] = []
       const failedNumbers: number[] = []
       let keptRaw = 0
+      let successChunks = 0
       let deckTitle = deck.title
 
       for (let index = 0; index < chunks.length; index += 1) {
@@ -216,6 +217,7 @@ export function SlideImportDialog() {
           const merged = mergeAiChunk(chunk, improved)
           keptRaw += merged.keptRaw
           improvedSlides.push(...merged.slides)
+          successChunks += 1
         } catch (caught) {
           if (controller.signal.aborted) throw caught
           failedNumbers.push(...chunk.slides.map((slide) => slide.number))
@@ -228,37 +230,43 @@ export function SlideImportDialog() {
       for (const slide of improvedSlides) improvedByNumber.set(slide.number, slide)
       const finalSlides = selectedSlides.map((slide) => improvedByNumber.get(slide.number) ?? slide)
 
-      setDeck({
-        ...deck,
-        title: deckTitle,
-        // Parçalar ayrı ayrı işlendiği için numaralar tekrar başlayabilir;
-        // birleşik destede sırayı koruyacak şekilde yeniden numaralandır.
-        slides: finalSlides.map((slide, index) => ({ ...slide, number: index + 1 })),
-        warnings: deck.warnings,
-      })
-      setAiApplied(true)
-      setExpandedSlide(null)
-      setExcluded(new Set())
-
-      if (failedNumbers.length) {
-        pushToast(
-          `${failedNumbers.length} slayt AI ile düzenlenemedi; ham metin korundu.`,
-          'default',
-        )
-      } else if (keptRaw) {
-        pushToast(
-          `${keptRaw} slayt AI yanıtında yoktu; ham metni korundu.`,
-          'default',
-        )
-      } else if (imageOnlyCount) {
-        pushToast(
-          `AI ${aiSlides.length} metinli slaytı düzenledi; ${imageOnlyCount} görsel slayt olduğu gibi eklendi.`,
-          'success',
-        )
-      } else if (total > 1) {
-        pushToast(`AI ${total} parçada slayt metnini düzenledi.`, 'success')
+      if (!successChunks) {
+        setAiError('AI düzenlemesi tamamlanamadı; ham metin korundu. Tekrar deneyebilirsin.')
+        pushToast('AI düzenlemesi başarısız oldu; ham metin korundu.', 'default')
       } else {
-        pushToast('AI slayt metnini düzenledi.', 'success')
+        setDeck({
+          ...deck,
+          title: deckTitle,
+          // Parçalar ayrı ayrı işlendiği için numaralar tekrar başlayabilir;
+          // birleşik destede sırayı koruyacak şekilde yeniden numaralandır.
+          slides: finalSlides.map((slide, index) => ({
+            ...slide,
+            number: index + 1,
+            title: /^Slayt \d+$/.test(slide.title) ? `Slayt ${index + 1}` : slide.title,
+          })),
+          warnings: deck.warnings,
+        })
+        setAiApplied(true)
+        setExpandedSlide(null)
+        setExcluded(new Set())
+
+        if (failedNumbers.length) {
+          pushToast(
+            `${failedNumbers.length} slayt AI ile düzenlenemedi; ham metin korundu.`,
+            'default',
+          )
+        } else if (keptRaw) {
+          pushToast(`${keptRaw} slayt AI yanıtında yoktu; ham metni korundu.`, 'default')
+        } else if (imageOnlyCount) {
+          pushToast(
+            `AI ${aiSlides.length} metinli slaytı düzenledi; ${imageOnlyCount} görsel slayt olduğu gibi eklendi.`,
+            'success',
+          )
+        } else if (total > 1) {
+          pushToast(`AI ${total} parçada slayt metnini düzenledi.`, 'success')
+        } else {
+          pushToast('AI slayt metnini düzenledi.', 'success')
+        }
       }
     } catch (caught) {
       if (controller.signal.aborted) return
