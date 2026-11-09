@@ -107,7 +107,81 @@ describe('docx çıkarımı', () => {
     const deck = await parseDocxArchive(zip, 'Belge')
 
     expect(deck.slides).toHaveLength(1)
-    expect(deck.warnings?.[0]).toContain('görseller nota eklenmedi')
+    expect(deck.warnings?.[0]).toContain('görseller nota eklenemedi')
+  })
+
+  it('belgedeki resmi slayta data URL olarak ekler', async () => {
+    const png = Buffer.concat([
+      Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        'base64',
+      ),
+      Buffer.alloc(5000),
+    ])
+
+    const zip = new JSZip()
+    zip.file(
+      'word/document.xml',
+      wrapDocument(`
+        ${paragraph('Görsel', { style: 'Heading1' })}
+        <w:p><w:r><w:drawing>
+          <a:blip xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            r:embed="rId5"/>
+        </w:drawing></w:r></w:p>
+        ${paragraph('Resimden sonraki paragraf')}
+      `),
+    )
+    zip.file(
+      'word/_rels/document.xml.rels',
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>
+</Relationships>`,
+    )
+    zip.file('word/media/image1.png', png)
+
+    const deck = await parseDocxArchive(zip, 'Belge')
+
+    expect(deck.slides).toHaveLength(1)
+    expect(deck.slides[0].images?.[0]).toMatch(/^data:image\/png;base64,/)
+    expect(deck.warnings).toBeUndefined()
+  })
+
+  it('yalnızca resim içeren paragrafı slayt olarak korur', async () => {
+    const png = Buffer.concat([
+      Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        'base64',
+      ),
+      Buffer.alloc(5000),
+    ])
+
+    const zip = new JSZip()
+    zip.file(
+      'word/document.xml',
+      wrapDocument(`
+        <w:p><w:r><w:drawing>
+          <a:blip xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            r:embed="rId5"/>
+        </w:drawing></w:r></w:p>
+      `),
+    )
+    zip.file(
+      'word/_rels/document.xml.rels',
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>
+</Relationships>`,
+    )
+    zip.file('word/media/image1.png', png)
+
+    const deck = await parseDocxArchive(zip, 'Belge')
+
+    expect(deck.slides).toHaveLength(1)
+    expect(deck.slides[0].title).toBe('Slayt 1')
+    expect(deck.slides[0].images).toHaveLength(1)
   })
 
   it('boş belgede okunabilir metin hatası verir', async () => {

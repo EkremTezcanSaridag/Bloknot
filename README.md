@@ -86,7 +86,7 @@ Kendi anahtarların varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu 
 
 - **PPTX:** başlık ve alt başlık yer tutucuları, madde listeleri, grup içindeki şekiller, tablolar, grafik başlığı/seri/kategori/değerleri, SmartArt metinleri ve konuşmacı notları okunur; gizli slaytlar atlanır. Metin çıkmayan görsel slaytlar en büyük görselleriyle resim olarak eklenir.
 - **PDF:** font boyutundan ve kalın yazıdan başlık seçilir, satır kaydırmaları birleştirilir, iki sütunlu sayfalar sütun sırasına göre dizilir, sayfa numaraları ve sayfalarda tekrar eden üst/alt bilgi satırları ayıklanır. Taranmış sayfalar resim olarak eklenir.
-- **DOCX:** Heading 1/2 stilleri ve ana hat düzeyleri bölüm başlığı olarak kullanılır; maddeler, numaralı listeler ve tablolar okunur. Belgedeki görseller bu sürümde nota eklenmez.
+- **DOCX:** Heading 1/2 stilleri ve ana hat düzeyleri bölüm başlığı olarak kullanılır; maddeler, numaralı listeler, tablolar ve belgeye gömülü resimler okunur.
 - **AI adımı isteğe bağlıdır.** “Düzenle ve netleştir”, “Slayt slayt özetle” veya “Ders notuna çevir” modlarından birini seçip AI ile düzenleyebilirsin. Yalnızca çıkarılan slayt metni AI sağlayıcısına gönderilir; dosya gönderilmez.
 - **Slayt seçimi.** Önizlemede slaytları tek tek işaretleyerek nota ve AI’ya dahil edilecekleri seç; kapak, teşekkür veya ek slaytları kolayca çıkar.
 - **Elle düzeltme.** Önizlemede bir slaytı açıp “Metni düzenle” ile başlığı, maddeleri ve konuşmacı notlarını AI’ya gerek kalmadan düzeltebilirsin.

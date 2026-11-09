@@ -2,6 +2,20 @@ import type JSZip from 'jszip'
 import type { Slide, SlideDeck, SlideTextItem } from './slides'
 
 const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+
+const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+}
+
+/** Küçük simge ve logoları atlamak için en az bu kadar base64 karakteri. */
+const MIN_DOCX_IMAGE_LENGTH = 5_000
 
 function parseXml(text: string): Document {
   return new DOMParser().parseFromString(text, 'application/xml')
@@ -24,8 +38,12 @@ function childByLocalName(parent: Element | null, name: string): Element | null 
   return Array.from(parent.children).find((element) => element.localName === name) ?? null
 }
 
-function attr(element: Element | null, name: string): string {
+function attr(element: Element | null, name: string, namespace?: string): string {
   if (!element) return ''
+  if (namespace) {
+    const namespaced = element.getAttributeNS(namespace, name)
+    if (namespaced) return namespaced
+  }
   return (
     element.getAttributeNS(W_NS, name) ||
     element.getAttribute(`w:${name}`) ||
@@ -113,6 +131,75 @@ function tableRows(table: Element): string[][] {
   )
 }
 
+/** Paragraftaki resim ilişki kimliklerini (drawing ve VML) toplar. */
+function paragraphImageIds(paragraph: Element): string[] {
+  const ids: string[] = []
+
+  for (const blip of allByLocalName(paragraph, 'blip')) {
+    const id = attr(blip, 'embed', R_NS) || attr(blip, 'link', R_NS)
+    if (id && !ids.includes(id)) ids.push(id)
+  }
+
+  for (const image of allByLocalName(paragraph, 'imagedata')) {
+    const id =
+      image.getAttributeNS(R_NS, 'id') ||
+      image.getAttribute('r:id') ||
+      image.getAttribute('id') ||
+      ''
+    if (id && !ids.includes(id)) ids.push(id)
+  }
+
+  return ids
+}
+
+function resolveDocxPath(baseDir: string, target: string): string {
+  const normalized = target.replace(/\\/g, '/')
+  if (normalized.startsWith('/')) return normalized.replace(/^\/+/, '')
+
+  const parts = `${baseDir}/${normalized}`.split('/')
+  const resolved: string[] = []
+  for (const part of parts) {
+    if (!part || part === '.') continue
+    if (part === '..') {
+      resolved.pop()
+      continue
+    }
+    resolved.push(part)
+  }
+  return resolved.join('/')
+}
+
+/** Belgedeki resim ilişkilerini data URL olarak yükler. */
+async function loadDocumentMedia(zip: JSZip): Promise<Map<string, string>> {
+  const media = new Map<string, string>()
+  const relsFile = zip.file('word/_rels/document.xml.rels')
+  if (!relsFile) return media
+
+  const rels = parseXml(await relsFile.async('string'))
+  for (const relationship of allByLocalName(rels, 'Relationship')) {
+    const type = relationship.getAttribute('Type') || ''
+    if (!type.endsWith('/image')) continue
+
+    const id = relationship.getAttribute('Id') || ''
+    const target = relationship.getAttribute('Target') || ''
+    if (!id || !target) continue
+
+    const path = resolveDocxPath('word', target)
+    const file = zip.file(path)
+    if (!file) continue
+
+    const extension = path.split('.').pop()?.toLowerCase() ?? ''
+    const mime = IMAGE_MIME_BY_EXTENSION[extension]
+    if (!mime) continue
+
+    const base64 = await file.async('base64')
+    if (base64.length < MIN_DOCX_IMAGE_LENGTH) continue
+    media.set(id, `data:${mime};base64,${base64}`)
+  }
+
+  return media
+}
+
 /** Gövde çocuklarını sırayla gezer; içerik denetimlerinin (sdt) içine iner. */
 function visitBody(node: Element, visit: (element: Element) => void): void {
   for (const child of Array.from(node.children)) {
@@ -129,6 +216,7 @@ interface DraftSlide {
   title: string
   items: SlideTextItem[]
   tables: string[][][]
+  images: string[]
 }
 
 async function readCoreTitle(zip: JSZip): Promise<string> {
@@ -169,11 +257,13 @@ export async function parseDocxArchive(
 
   const drafts: DraftSlide[] = []
   let current: DraftSlide | null = null
-  let hasImage = false
+  let imageFound = 0
+  let imageAdded = 0
+  const media = await loadDocumentMedia(zip)
 
   const ensureCurrent = (): DraftSlide => {
     if (!current) {
-      current = { title: '', items: [], tables: [] }
+      current = { title: '', items: [], tables: [], images: [] }
       drafts.push(current)
     }
     return current
@@ -186,8 +276,22 @@ export async function parseDocxArchive(
       continue
     }
 
-    if (allByLocalName(block, 'drawing').length || allByLocalName(block, 'pict').length) {
-      hasImage = true
+    const imageIds = paragraphImageIds(block)
+    if (imageIds.length) {
+      imageFound += imageIds.length
+      const draft = ensureCurrent()
+      for (const id of imageIds) {
+        const source = media.get(id)
+        if (source && !draft.images.includes(source)) {
+          draft.images.push(source)
+          imageAdded += 1
+        }
+      }
+    } else if (
+      allByLocalName(block, 'drawing').length ||
+      allByLocalName(block, 'pict').length
+    ) {
+      imageFound += 1
     }
 
     const text = paragraphText(block)
@@ -195,7 +299,7 @@ export async function parseDocxArchive(
 
     const level = headingLevel(block)
     if (splitLevel && level !== null && level <= splitLevel) {
-      current = { title: text, items: [], tables: [] }
+      current = { title: text, items: [], tables: [], images: [] }
       drafts.push(current)
       continue
     }
@@ -218,13 +322,16 @@ export async function parseDocxArchive(
     coreTitle || drafts.find((draft) => draft.title)?.title || fallbackTitle
 
   const slides: Slide[] = drafts
-    .filter((draft) => draft.title || draft.items.length || draft.tables.length)
+    .filter(
+      (draft) => draft.title || draft.items.length || draft.tables.length || draft.images.length,
+    )
     .map((draft, index) => ({
       number: index + 1,
       title: draft.title || `Slayt ${index + 1}`,
       items: draft.items,
       notes: [],
       tables: draft.tables.length ? draft.tables : undefined,
+      images: draft.images.length ? draft.images : undefined,
     }))
 
   if (!slides.length) {
@@ -232,8 +339,8 @@ export async function parseDocxArchive(
   }
 
   const warnings: string[] = []
-  if (hasImage) {
-    warnings.push('DOCX içindeki görseller nota eklenmedi.')
+  if (imageFound && !imageAdded) {
+    warnings.push('DOCX içindeki görseller nota eklenemedi.')
   }
 
   return {
