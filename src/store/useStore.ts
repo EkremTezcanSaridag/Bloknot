@@ -60,6 +60,8 @@ interface Store {
   toggleFavorite: (noteId: string) => void
   addTag: (noteId: string, tag: string) => void
   removeTag: (noteId: string, tag: string) => void
+  renameTag: (from: string, to: string) => void
+  deleteTag: (tag: string) => void
 
   addBlock: (noteId: string, block: Partial<Block> & { type: BlockType }, afterId?: string) => string
   insertBlocks: (noteId: string, blocks: Array<Partial<Block> & { type: BlockType }>, afterId?: string) => string[]
@@ -379,6 +381,45 @@ export const useStore = create<Store>()(
               ? { ...note, tags: note.tags.filter((item) => item !== tag) }
               : note,
           ),
+        }))
+      },
+
+      renameTag: (from, to) => {
+        const [nextTag] = normalizeTags([to])
+        if (!nextTag || nextTag === from) return
+
+        set((state) => ({
+          notes: state.notes.map((note) =>
+            note.tags.includes(from)
+              ? {
+                  ...note,
+                  tags: normalizeTags(note.tags.map((tag) => (tag === from ? nextTag : tag))),
+                  updatedAt: Date.now(),
+                }
+              : note,
+          ),
+          filter:
+            state.filter.kind === 'tag' && state.filter.tag === from
+              ? { kind: 'tag', tag: nextTag }
+              : state.filter,
+        }))
+      },
+
+      deleteTag: (tag) => {
+        set((state) => ({
+          notes: state.notes.map((note) =>
+            note.tags.includes(tag)
+              ? {
+                  ...note,
+                  tags: note.tags.filter((item) => item !== tag),
+                  updatedAt: Date.now(),
+                }
+              : note,
+          ),
+          filter:
+            state.filter.kind === 'tag' && state.filter.tag === tag
+              ? { kind: 'all' }
+              : state.filter,
         }))
       },
 

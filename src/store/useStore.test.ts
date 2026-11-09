@@ -158,6 +158,36 @@ describe('not işlemleri', () => {
     expect(copy?.blocks[0].id).not.toBe(sourceBlockId)
   })
 
+  it('etiketi tüm notlarda yeniden adlandırır ve tekrarları temizler', () => {
+    const first = useStore.getState().createNote({ title: 'Bir', tags: ['eski', 'yeni'] })
+    const second = useStore.getState().createNote({ title: 'İki', tags: ['eski', 'başka'] })
+
+    useStore.getState().renameTag('eski', 'yeni')
+
+    const notes = useStore.getState().notes
+    expect(notes.find((note) => note.id === first)?.tags).toEqual(['yeni'])
+    expect(notes.find((note) => note.id === second)?.tags).toEqual(['yeni', 'başka'])
+  })
+
+  it('etiket filtresi yeniden adlandırmayı izler', () => {
+    useStore.getState().createNote({ title: 'Etiketli', tags: ['eski'] })
+    useStore.getState().setFilter({ kind: 'tag', tag: 'eski' })
+
+    useStore.getState().renameTag('eski', 'yeni')
+
+    expect(useStore.getState().filter).toEqual({ kind: 'tag', tag: 'yeni' })
+  })
+
+  it('etiketi tüm notlardan siler ve filtreyi sıfırlar', () => {
+    const id = useStore.getState().createNote({ title: 'Etiketli', tags: ['sil', 'kal'] })
+    useStore.getState().setFilter({ kind: 'tag', tag: 'sil' })
+
+    useStore.getState().deleteTag('sil')
+
+    expect(useStore.getState().notes.find((note) => note.id === id)?.tags).toEqual(['kal'])
+    expect(useStore.getState().filter).toEqual({ kind: 'all' })
+  })
+
   it('içe aktarmada HTML’i temizler ve kimlik çakışmasını çözer', () => {
     const existing = useStore.getState().createNote({ title: 'Mevcut' })
     const incoming = {

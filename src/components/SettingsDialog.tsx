@@ -7,11 +7,13 @@ import {
   FileJson,
   FileText,
   HardDrive,
+  Hash,
   Info,
   Monitor,
   Moon,
   Palette,
   PartyPopper,
+  Pencil,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -19,6 +21,7 @@ import {
   Trash2,
   Upload,
   Volume2,
+  X,
 } from 'lucide-react'
 import type { Note, Snapshot, ThemeMode } from '../types'
 import { useStore } from '../store/useStore'
@@ -44,6 +47,8 @@ export function SettingsDialog() {
   const markBackupDone = useStore((state) => state.markBackupDone)
   const importNotes = useStore((state) => state.importNotes)
   const resetAll = useStore((state) => state.resetAll)
+  const renameTag = useStore((state) => state.renameTag)
+  const deleteTag = useStore((state) => state.deleteTag)
   const createNote = useStore((state) => state.createNote)
   const pushToast = useStore((state) => state.pushToast)
   const openDialog = useStore((state) => state.openDialog)
@@ -56,6 +61,9 @@ export function SettingsDialog() {
   const [importError, setImportError] = useState('')
   const [confirmSnapshot, setConfirmSnapshot] = useState<string | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [editingTag, setEditingTag] = useState<string | null>(null)
+  const [tagDraft, setTagDraft] = useState('')
+  const [confirmTagDelete, setConfirmTagDelete] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const refreshMeta = () => {
@@ -73,11 +81,44 @@ export function SettingsDialog() {
     setImportError('')
     setConfirmSnapshot(null)
     setConfirmReset(false)
+    setEditingTag(null)
+    setConfirmTagDelete(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialog])
 
   const noteCount = notes.filter((note) => !note.trashedAt).length
   const trashCount = notes.filter((note) => note.trashedAt).length
+
+  const tagCounts = (() => {
+    const map = new Map<string, number>()
+    for (const note of notes) {
+      if (note.trashedAt) continue
+      for (const tag of note.tags) map.set(tag, (map.get(tag) ?? 0) + 1)
+    }
+    return Array.from(map.entries()).sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'tr'),
+    )
+  })()
+
+  const commitTagEdit = () => {
+    if (!editingTag) return
+    const next = tagDraft.trim()
+    if (!next) {
+      pushToast('Etiket adı boş olamaz.', 'danger')
+      return
+    }
+    if (next !== editingTag) {
+      renameTag(editingTag, next)
+      pushToast('Etiket yeniden adlandırıldı.', 'success')
+    }
+    setEditingTag(null)
+  }
+
+  const removeTagEverywhere = (tag: string) => {
+    deleteTag(tag)
+    setConfirmTagDelete(null)
+    pushToast(`#${tag} etiketi silindi.`, 'danger')
+  }
 
   const exportBackupFile = () => {
     const stamp = new Date().toISOString().slice(0, 10)
@@ -275,6 +316,122 @@ export function SettingsDialog() {
               onChange={(checked) => updateSettings({ sounds: checked })}
             />
           </div>
+        </section>
+
+        <section>
+          <SectionTitle icon={Hash} title="Etiketler" />
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3">
+            {tagCounts.length === 0 ? (
+              <p className="text-xs font-semibold text-[var(--text-faint)]">
+                Henüz etiket yok. Notlarına etiket ekledikçe burada toplanır.
+              </p>
+            ) : (
+              <ul className="space-y-0.5">
+                {tagCounts.map(([tag, count]) => (
+                  <li
+                    key={tag}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-[var(--surface-2)]"
+                  >
+                    {editingTag === tag ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={tagDraft}
+                          maxLength={24}
+                          onChange={(event) => setTagDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              commitTagEdit()
+                            }
+                            if (event.key === 'Escape') {
+                              event.preventDefault()
+                              setEditingTag(null)
+                            }
+                          }}
+                          aria-label={`${tag} etiketini yeniden adlandır`}
+                          className="h-7 min-w-0 flex-1 rounded-lg border border-[var(--accent)] bg-[var(--surface)] px-2 text-xs font-bold text-[var(--text)] outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={commitTagEdit}
+                          className="grid size-7 place-items-center rounded-lg bg-[var(--accent)] text-[var(--accent-ink)]"
+                          aria-label="Etiket adını kaydet"
+                          title="Kaydet"
+                        >
+                          <Check className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingTag(null)}
+                          className="grid size-7 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                          aria-label="Yeniden adlandırmayı iptal et"
+                          title="Vazgeç"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="min-w-0 flex-1 truncate text-xs font-bold text-[var(--text-soft)]">
+                          #{tag}
+                        </span>
+                        <span className="shrink-0 text-[0.62rem] font-semibold text-[var(--text-faint)]">
+                          {count} not
+                        </span>
+                        {confirmTagDelete === tag ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => removeTagEverywhere(tag)}
+                              className="rounded-md bg-[var(--danger)] px-2 py-1 text-[0.62rem] font-bold text-white"
+                            >
+                              Eminim, sil
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmTagDelete(null)}
+                              className="rounded-md px-2 py-1 text-[0.62rem] font-bold text-[var(--text-faint)] hover:text-[var(--text)]"
+                            >
+                              Vazgeç
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingTag(tag)
+                                setTagDraft(tag)
+                                setConfirmTagDelete(null)
+                              }}
+                              className="grid size-7 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
+                              aria-label={`${tag} etiketini yeniden adlandır`}
+                              title="Yeniden adlandır"
+                            >
+                              <Pencil className="size-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmTagDelete(tag)}
+                              className="grid size-7 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+                              aria-label={`${tag} etiketini sil`}
+                              title="Etiketi sil"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <p className="mt-1.5 text-[0.65rem] font-semibold text-[var(--text-faint)]">
+            Yeniden adlandırma ve silme tüm notlara uygulanır.
+          </p>
         </section>
 
         <section>
