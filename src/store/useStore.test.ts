@@ -85,6 +85,21 @@ describe('not işlemleri', () => {
     expect(blocks[0].html).toBe('Ana başlık')
   })
 
+  it('tablo bloklarını güvenli hücrelere normalize eder', () => {
+    const id = useStore.getState().createNote({ title: 'Tablo' })
+    const blockId = useStore.getState().addBlock(id, {
+      type: 'table',
+      rows: [['a'], ['b', 'c']],
+    })
+
+    const block = useStore.getState().notes[0].blocks.find((item) => item.id === blockId)
+    expect(block?.rows).toEqual([
+      ['a', ''],
+      ['b', 'c'],
+    ])
+    expect(block?.headerRow).toBe(true)
+  })
+
   it('yapılacak durumunu değiştirir', () => {
     const id = useStore.getState().createNote({ title: 'Görev' })
     const block = useStore.getState().notes[0].blocks[0]

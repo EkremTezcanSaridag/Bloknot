@@ -7,8 +7,12 @@ Bloknot, tarayıcında çalışan; hesap açmadan kullanabileceğin, blok tabanl
 ## Neden Bloknot?
 
 - **Hesap yok, sunucu yok.** Notların yalnızca senin tarayıcında (IndexedDB) saklanır.
-- **Blok tabanlı düzenleme.** Başlık, liste, yapılacak, alıntı, not kutusu, kod, görsel ve daha fazlası.
+- **Blok tabanlı düzenleme.** Başlık, liste, yapılacak, alıntı, not kutusu, kod, tablo, görsel ve daha fazlası.
 - **Sürükle-bırak.** Blokları tutamaçtan tutup istediğin yere taşı.
+- **Tablo bloğu.** Satır/sütun ekle-sil, başlık satırını aç-kapat; Tab ile hücreler arasında gez.
+- **İçindekiler.** Uzun notlarda başlıklardan oluşan bir içindekiler paneli; başlığa tıkla, nota atla.
+- **Yazdır / PDF.** Notu temiz bir kâğıt düzeninde yazdır veya PDF olarak kaydet.
+- **Türkçe duyarlı arama.** “guzel” yazınca “güzel”i de bulur; sonuçta eşleşme vurgulanır.
 - **Markdown kısayolları.** `#`, `-`, `[]`, `>`, ` ``` ` ile hızlıca blok oluştur.
 - **Slash menüsü.** Boş satırda `/` yaz, blok türünü seç.
 - **Bağlantıyla paylaşım.** Notu URL'ye sıkıştırıp salt okunur bağlantı olarak gönder; karşı taraf tek tıkla kendi defterine kopyalasın.

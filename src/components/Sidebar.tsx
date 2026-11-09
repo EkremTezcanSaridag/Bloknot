@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { dayGroup, relativeTime } from '../lib/date'
-import { noteSnippet, searchNotes } from '../lib/search'
+import { noteSnippet, highlightParts, searchNotes } from '../lib/search'
 import { EMOJI_CHOICES } from '../lib/covers'
 import { playSound } from '../lib/sound'
 import { Logo } from './Logo'
@@ -364,6 +364,7 @@ export function Sidebar() {
                       <NoteItem
                         key={note.id}
                         note={note}
+                        query={search}
                         active={note.id === activeNoteId}
                         onClick={() => setActiveNote(note.id)}
                         onFavorite={() => toggleFavorite(note.id)}
@@ -376,6 +377,7 @@ export function Sidebar() {
                   <NoteItem
                     key={note.id}
                     note={note}
+                    query={search}
                     active={note.id === activeNoteId}
                     onClick={() => setActiveNote(note.id)}
                     onFavorite={() => toggleFavorite(note.id)}
@@ -462,18 +464,21 @@ function FilterRow({
 
 function NoteItem({
   note,
+  query,
   active,
   onClick,
   onFavorite,
   onTrash,
 }: {
   note: ReturnType<typeof useStore.getState>['notes'][number]
+  query: string
   active: boolean
   onClick: () => void
   onFavorite: () => void
   onTrash: () => void
 }) {
-  const snippet = noteSnippet(note)
+  const snippet = noteSnippet(note, query)
+  const highlighted = query.trim() ? highlightParts(snippet, query) : null
 
   return (
     <div
@@ -498,7 +503,20 @@ function NoteItem({
             </div>
             <div className="mt-0.5 flex items-center gap-2">
               <p className="min-w-0 flex-1 truncate text-[0.68rem] font-medium text-[var(--text-faint)]">
-                {snippet || 'Boş not'}
+                {highlighted
+                  ? highlighted.map((part, index) =>
+                      part.match ? (
+                        <mark
+                          key={index}
+                          className="rounded bg-[var(--accent-soft)] px-0.5 font-bold text-[var(--accent)]"
+                        >
+                          {part.text}
+                        </mark>
+                      ) : (
+                        <span key={index}>{part.text}</span>
+                      ),
+                    )
+                  : snippet || 'Boş not'}
               </p>
               <span className="shrink-0 text-[0.6rem] font-semibold text-[var(--text-faint)]">
                 {relativeTime(note.updatedAt)}

@@ -6,6 +6,7 @@ import { coverStyle } from '../lib/covers'
 import { useStore } from '../store/useStore'
 import { decodeHtmlText } from '../lib/dom'
 import { htmlToText, sanitizeHtml } from '../lib/sanitize'
+import { normalizeTableRows } from '../lib/table'
 import { LogoMark } from './Logo'
 
 export function SharedNote({ token }: { token: string }) {
@@ -302,6 +303,36 @@ function ReadOnlyBlock({ block, number }: { block: SharedNoteData['blocks'][numb
       )
     case 'divider':
       return <hr className="my-4 border-[var(--border-strong)]" />
+    case 'table': {
+      const rows = normalizeTableRows(block.rows)
+      const headerRow = block.headerRow !== false
+      return (
+        <div className="my-2 overflow-x-auto rounded-xl border border-[var(--border)]">
+          <table className="w-full border-collapse text-left text-[15px]">
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {row.map((cell, columnIndex) => {
+                    const isHeader = headerRow && rowIndex === 0
+                    const Cell = isHeader ? 'th' : 'td'
+                    return (
+                      <Cell
+                        key={columnIndex}
+                        className={`border-b border-r border-[var(--border)] px-2.5 py-2 align-top last:border-r-0 ${
+                          isHeader ? 'bg-[var(--surface-2)] font-extrabold' : 'font-medium'
+                        }`}
+                      >
+                        {cell}
+                      </Cell>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
     case 'image':
       return block.src ? (
         <figure className="overflow-hidden rounded-2xl border border-[var(--border)]">

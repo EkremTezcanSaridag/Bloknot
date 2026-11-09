@@ -248,7 +248,7 @@ export function CommandPalette() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold">{note.title || 'Başlıksız'}</span>
                       <span className="block truncate text-[0.68rem] text-[var(--text-faint)]">
-                        {noteSnippet(note) || 'Boş not'} · {relativeTime(note.updatedAt)}
+                        {noteSnippet(note, query) || 'Boş not'} · {relativeTime(note.updatedAt)}
                       </span>
                     </span>
                     <FileText className="size-3.5 shrink-0 text-[var(--text-faint)]" />

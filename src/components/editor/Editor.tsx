@@ -7,11 +7,13 @@ import {
   FileText,
   HardDrive,
   Image as ImageIcon,
+  ListTree,
   Maximize2,
   Menu,
   Minimize2,
   MoreHorizontal,
   Plus,
+  Printer,
   Share2,
   Smile,
   Sparkles,
@@ -28,6 +30,7 @@ import { downloadText, noteToMarkdown, slugify } from '../../lib/markdown'
 import { exportBackup } from '../../lib/backup'
 import { htmlToText } from '../../lib/sanitize'
 import { BlockList } from './BlockList'
+import { OutlinePanel } from './OutlinePanel'
 import { EmptyState } from '../EmptyState'
 import { EmojiPicker } from '../EmojiPicker'
 import { CoverPicker } from '../CoverPicker'
@@ -73,9 +76,11 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [coverOpen, setCoverOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [outlineOpen, setOutlineOpen] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const moreRef = useRef<HTMLDivElement>(null)
+  const outlineRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const element = titleRef.current
@@ -94,6 +99,17 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
     document.addEventListener('mousedown', onPointerDown)
     return () => document.removeEventListener('mousedown', onPointerDown)
   }, [moreOpen])
+
+  useEffect(() => {
+    if (!outlineOpen) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (outlineRef.current && !outlineRef.current.contains(event.target as Node)) {
+        setOutlineOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [outlineOpen])
 
   useEffect(() => {
     if (!focusMode) return
@@ -206,6 +222,24 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
               Bu cihazda
             </span>
           )}
+
+          <div className="relative" ref={outlineRef}>
+            <button
+              type="button"
+              onClick={() => setOutlineOpen((value) => !value)}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-2.5 transition hover:bg-[var(--surface-2)] hover:text-[var(--text)] ${
+                outlineOpen ? 'text-[var(--accent)]' : 'text-[var(--text-soft)]'
+              }`}
+              title="İçindekiler"
+              aria-label="İçindekiler"
+              aria-expanded={outlineOpen}
+            >
+              <ListTree className="size-4.5" />
+              <span className="hidden text-xs font-bold lg:inline">İçindekiler</span>
+            </button>
+
+            {outlineOpen && <OutlinePanel note={note} onClose={() => setOutlineOpen(false)} />}
+          </div>
 
           <button
             type="button"
@@ -348,6 +382,18 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
                     <div className="my-1 h-px bg-[var(--border)]" />
 
                     <MenuItem
+                      icon={Printer}
+                      onClick={() => {
+                        setMoreOpen(false)
+                        window.print()
+                      }}
+                    >
+                      Yazdır / PDF
+                    </MenuItem>
+
+                    <div className="my-1 h-px bg-[var(--border)]" />
+
+                    <MenuItem
                       icon={Trash2}
                       danger
                       onClick={() => {
@@ -365,15 +411,15 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <article className="mx-auto w-full max-w-3xl pb-40">
+      <div className="editor-scroll min-h-0 flex-1 overflow-y-auto">
+        <article className="note-article mx-auto w-full max-w-3xl pb-40">
           {note.cover && (
             <div
               className="group/cover relative h-40 w-full sm:h-52"
               style={{ background: coverStyle(note.cover) }}
             >
               <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/45 to-transparent" />
-              <div className="absolute right-3 top-3 flex gap-1.5 opacity-0 transition group-hover/cover:opacity-100">
+              <div className="no-print absolute right-3 top-3 flex gap-1.5 opacity-0 transition group-hover/cover:opacity-100">
                 <button
                   type="button"
                   onClick={() => setCoverOpen(true)}
@@ -399,7 +445,7 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
               <button
                 type="button"
                 onClick={() => setCoverOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text-soft)]"
+                className="print:hidden inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text-soft)]"
               >
                 <ImageIcon className="size-3.5" />
                 Kapak ekle
@@ -485,13 +531,13 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
             <button
               type="button"
               onClick={continueWriting}
-              className="mt-3 flex w-full items-center gap-2 rounded-xl px-2 py-5 text-left text-sm font-semibold text-[var(--text-faint)] transition hover:bg-[var(--surface-2)]/70 hover:text-[var(--text-soft)]"
+              className="print:hidden mt-3 flex w-full items-center gap-2 rounded-xl px-2 py-5 text-left text-sm font-semibold text-[var(--text-faint)] transition hover:bg-[var(--surface-2)]/70 hover:text-[var(--text-soft)]"
             >
               <Plus className="size-4" />
               Yazmaya devam et…
             </button>
 
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-4 text-[0.68rem] font-semibold text-[var(--text-faint)]">
+            <div className="print:hidden mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-4 text-[0.68rem] font-semibold text-[var(--text-faint)]">
               <span className="inline-flex items-center gap-1.5">
                 <HardDrive className="size-3.5" />
                 Bu not yalnızca bu tarayıcıda saklanır.

@@ -147,7 +147,7 @@ export default function App() {
 
   return (
     <div
-      className="flex h-dvh overflow-hidden bg-[var(--bg)] text-[var(--text)]"
+      className="app-shell flex h-dvh overflow-hidden bg-[var(--bg)] text-[var(--text)]"
       data-compact={settings.compact ? 'true' : 'false'}
     >
       {!focusMode && <Sidebar />}

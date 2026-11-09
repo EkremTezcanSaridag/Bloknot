@@ -34,6 +34,31 @@ describe('encodeNote / decodeSharedNote', () => {
     expect(decoded?.blocks[1].checked).toBe(true)
   })
 
+  it('tablo bloğunu hücreleriyle paylaşır', () => {
+    const note = sampleNote()
+    note.blocks = [
+      {
+        id: 'b1',
+        type: 'table',
+        html: '',
+        rows: [
+          ['Ürün', 'Fiyat'],
+          ['Kalem', '10'],
+        ],
+        headerRow: true,
+      },
+    ]
+
+    const decoded = decodeSharedNote(encodeNote(note).token)
+
+    expect(decoded?.blocks[0].type).toBe('table')
+    expect(decoded?.blocks[0].rows).toEqual([
+      ['Ürün', 'Fiyat'],
+      ['Kalem', '10'],
+    ])
+    expect(decoded?.blocks[0].headerRow).toBe(true)
+  })
+
   it('uzun notun tamamını paylaşır', () => {
     const note = sampleNote()
     const words = Array.from({ length: 4_500 }, (_, index) => `kelime${index}`).join(' ')

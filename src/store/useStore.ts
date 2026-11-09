@@ -6,6 +6,7 @@ import { newBlock } from '../lib/markdown'
 import { sanitizeHtml } from '../lib/sanitize'
 import { createSeedNotes } from '../lib/seed'
 import { appStorage } from '../lib/storage'
+import { normalizeTableRows } from '../lib/table'
 import {
   DEFAULT_AI_BASE_URL,
   DEFAULT_AI_MODEL,
@@ -118,6 +119,7 @@ const BLOCK_TYPES = new Set<BlockType>([
   'code',
   'divider',
   'image',
+  'table',
 ])
 
 function normalizeTags(tags: unknown): string[] {
@@ -143,6 +145,10 @@ export function normalizeBlock(raw: Partial<Block> & { type?: BlockType }): Bloc
   if (type === 'image') {
     block.src = raw.src
     block.caption = raw.caption?.slice(0, 240)
+  }
+  if (type === 'table') {
+    block.rows = normalizeTableRows(raw.rows)
+    block.headerRow = raw.headerRow !== false
   }
 
   return block

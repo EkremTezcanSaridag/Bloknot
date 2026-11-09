@@ -18,6 +18,7 @@ import { useStore } from '../../store/useStore'
 import { focusEditable } from '../../lib/dom'
 import { markdownToBlocks } from '../../lib/markdown'
 import { escapeHtml } from '../../lib/sanitize'
+import { defaultTableRows } from '../../lib/table'
 import { BlockRow } from './BlockRow'
 
 interface BlockListProps {
@@ -92,7 +93,7 @@ export function BlockList({ note }: BlockListProps) {
 
     const previous = blocks[index - 1]
 
-    if (previous.type === 'divider' || previous.type === 'image') {
+    if (previous.type === 'divider' || previous.type === 'image' || previous.type === 'table') {
       if (!block.html && !block.src) {
         removeBlock(note.id, block.id)
         const focusTarget = findEditable(blocks, index - 1, 'back')
@@ -208,10 +209,13 @@ function blockDefaults(type: BlockType): {
   emoji?: string
   language?: string
   checked?: boolean
+  rows?: string[][]
+  headerRow?: boolean
 } {
   if (type === 'callout') return { emoji: '💡' }
   if (type === 'code') return { language: 'text' }
   if (type === 'todo') return { checked: false }
+  if (type === 'table') return { rows: defaultTableRows(), headerRow: true }
   return {}
 }
 
@@ -230,7 +234,7 @@ function findEditable(
   let index = startIndex
   while (index >= 0 && index < blocks.length) {
     const block = blocks[index]
-    if (block.type !== 'divider' && block.type !== 'image') return block
+    if (block.type !== 'divider' && block.type !== 'image' && block.type !== 'table') return block
     index += direction === 'back' ? -1 : 1
   }
   return null

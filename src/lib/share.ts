@@ -2,6 +2,7 @@ import LZString from 'lz-string'
 import type { Block, BlockType, Cover, Note } from '../types'
 import { createId } from './id'
 import { sanitizeHtml } from './sanitize'
+import { normalizeTableRows } from './table'
 import { SHARED_GROQ_PROXY_URL } from './aiConfig'
 
 const MAX_TOKEN_LENGTH = 48_000
@@ -27,6 +28,7 @@ const BLOCK_TYPES = new Set<BlockType>([
   'code',
   'divider',
   'image',
+  'table',
 ])
 
 export interface SharedNote {
@@ -115,6 +117,9 @@ function toShareBlock(block: Block): Omit<Block, 'id'> {
     ...(block.src ? { src: block.src } : {}),
     ...(block.caption ? { caption: block.caption } : {}),
     ...(block.emoji ? { emoji: block.emoji } : {}),
+    ...(block.type === 'table'
+      ? { rows: normalizeTableRows(block.rows), headerRow: block.headerRow !== false }
+      : {}),
   }
 }
 
@@ -134,6 +139,9 @@ function parseBlock(raw: unknown): Block | null {
     src: normalizeImageSrc(record.src),
     caption: trimText(record.caption, 240) || undefined,
     emoji: trimText(record.emoji, 8) || undefined,
+    ...(type === 'table'
+      ? { rows: normalizeTableRows(record.rows), headerRow: record.headerRow !== false }
+      : {}),
   }
 }
 

@@ -13,6 +13,7 @@ import {
   Pilcrow,
   Quote,
   Search,
+  Table,
   type LucideIcon,
 } from 'lucide-react'
 import type { BlockType } from '../../types'
@@ -38,6 +39,7 @@ const OPTIONS: BlockOption[] = [
   { type: 'code', label: 'Kod', hint: 'Kod bloğu', icon: Code2, keywords: 'kod code program' },
   { type: 'divider', label: 'Ayırıcı', hint: 'Yatay çizgi', icon: Minus, keywords: 'çizgi ayırıcı divider' },
   { type: 'image', label: 'Görsel', hint: 'Resim veya ekran görüntüsü', icon: ImageIcon, keywords: 'görsel resim fotoğraf image' },
+  { type: 'table', label: 'Tablo', hint: 'Satır ve sütunlu çizelge', icon: Table, keywords: 'tablo çizelge table satır sütun' },
 ]
 
 interface BlockTypeMenuProps {

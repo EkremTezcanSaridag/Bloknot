@@ -1,6 +1,7 @@
 import type { Block, BlockType, Note } from '../types'
 import { createId } from './id'
 import { escapeHtml, htmlToMarkdown, inlineMarkdownToHtml } from './sanitize'
+import { isTableDivider, isTableLine, normalizeTableRows, parseTableRow, tableToMarkdown } from './table'
 
 const HEADING_PATTERN = /^(#{1,3})\s+(.*)$/
 const TODO_PATTERN = /^\s*[-*+]\s+\[([ xX])]\s+(.*)$/
@@ -59,6 +60,17 @@ export function markdownToBlocks(markdown: string): Block[] {
           language: language || 'text',
         }),
       )
+      continue
+    }
+
+    if (isTableLine(line) && index + 1 < lines.length && isTableDivider(lines[index + 1])) {
+      const rows: string[][] = [parseTableRow(line)]
+      index += 2
+      while (index < lines.length && lines[index].trim() && isTableLine(lines[index])) {
+        rows.push(parseTableRow(lines[index]))
+        index += 1
+      }
+      blocks.push(newBlock('table', { rows: normalizeTableRows(rows), headerRow: true }))
       continue
     }
 
@@ -142,7 +154,8 @@ function isBlockStart(line: string): boolean {
     QUOTE_PATTERN.test(line) ||
     IMAGE_PATTERN.test(line) ||
     DIVIDER_PATTERN.test(line) ||
-    FENCE_PATTERN.test(line)
+    FENCE_PATTERN.test(line) ||
+    isTableLine(line)
   )
 }
 
@@ -173,6 +186,8 @@ export function blockToMarkdown(block: Block): string {
       return '---'
     case 'image':
       return block.src ? `![${block.caption ?? ''}](${block.src})` : ''
+    case 'table':
+      return tableToMarkdown(block)
     default:
       return text
   }

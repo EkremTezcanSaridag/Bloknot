@@ -36,6 +36,7 @@ import {
 import { getAiKey } from '../../lib/aiKey'
 import { Editable } from './Editable'
 import { BlockTypeMenu } from './BlockTypeMenu'
+import { TableBlock } from './TableBlock'
 import { EmojiPicker } from '../EmojiPicker'
 
 interface BlockRowProps {
@@ -233,7 +234,7 @@ export function BlockRow({
   }
 
   const canUseBlockAi =
-    block.type !== 'image' && block.type !== 'divider' && block.type !== 'code'
+    block.type !== 'image' && block.type !== 'divider' && block.type !== 'code' && block.type !== 'table'
   const blockText = htmlToText(block.html).trim()
 
   const toggleAiPanel = () => {
@@ -573,6 +574,9 @@ export function BlockRow({
             )}
           </div>
         )
+
+      case 'table':
+        return <TableBlock block={block} onChange={update} />
 
       case 'todo':
         return (
@@ -1090,6 +1094,12 @@ function GeneratedBlocksPreview({ blocks }: { blocks: Block[] }) {
             )
           case 'divider':
             return <hr key={item.id} className="my-1 border-[var(--border-strong)]" />
+          case 'table':
+            return (
+              <p key={item.id} className="text-xs font-semibold text-[var(--text-faint)]">
+                ▦ Tablo · {item.rows?.length ?? 0}×{item.rows?.[0]?.length ?? 0}
+              </p>
+            )
           case 'image':
             return (
               <p key={item.id} className="text-xs font-semibold text-[var(--text-faint)]">

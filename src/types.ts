@@ -11,6 +11,7 @@ export type BlockType =
   | 'code'
   | 'divider'
   | 'image'
+  | 'table'
 
 export interface Block {
   id: string
@@ -22,6 +23,10 @@ export interface Block {
   src?: string
   caption?: string
   emoji?: string
+  /** `table` bloklarında hücre metinleri (satır × sütun). */
+  rows?: string[][]
+  /** İlk satır başlık olarak biçimlendirilsin mi? */
+  headerRow?: boolean
 }
 
 export type Cover = { type: 'gradient'; id: string } | { type: 'image'; src: string }
