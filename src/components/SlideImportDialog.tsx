@@ -37,6 +37,9 @@ export function SlideImportDialog() {
   const dialog = useStore((state) => state.dialog)
   const closeDialog = useStore((state) => state.closeDialog)
   const createNote = useStore((state) => state.createNote)
+  const updateNote = useStore((state) => state.updateNote)
+  const setActiveNote = useStore((state) => state.setActiveNote)
+  const notes = useStore((state) => state.notes)
   const pushToast = useStore((state) => state.pushToast)
   const settings = useStore((state) => state.settings)
 
@@ -57,6 +60,7 @@ export function SlideImportDialog() {
   const [aiError, setAiError] = useState('')
   const [expandedSlide, setExpandedSlide] = useState<number | null>(null)
   const [excluded, setExcluded] = useState<Set<number>>(() => new Set())
+  const [targetNoteId, setTargetNoteId] = useState('new')
   const inputRef = useRef<HTMLInputElement>(null)
   const aiAbortRef = useRef<AbortController | null>(null)
 
@@ -66,6 +70,11 @@ export function SlideImportDialog() {
   const selectedSlides = deck ? deck.slides.filter((slide) => !excluded.has(slide.number)) : []
   const selectedCount = selectedSlides.length
   const allSelected = Boolean(deck) && excluded.size === 0
+  const noteOptions = notes
+    .filter((note) => !note.trashedAt)
+    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .slice(0, 50)
+  const targetNote = targetNoteId === 'new' ? null : notes.find((note) => note.id === targetNoteId)
 
   useEffect(() => {
     if (dialog !== 'slides') {
@@ -85,6 +94,7 @@ export function SlideImportDialog() {
       setAiError('')
       setExpandedSlide(null)
       setExcluded(new Set())
+      setTargetNoteId('new')
     }
   }, [dialog])
 
@@ -306,11 +316,28 @@ export function SlideImportDialog() {
       setError('Nota eklenecek slayt seçili değil. En az bir slayt işaretle.')
       return
     }
+    if (targetNoteId !== 'new' && !targetNote) {
+      setError('Seçili not bulunamadı. Başka bir not seç veya yeni not oluştur.')
+      return
+    }
     setCreating(true)
     setError('')
 
     try {
       const blocks = slidesToBlocks({ ...deck, slides: selectedSlides }, mode, includeNotes)
+
+      if (targetNote) {
+        // Var olan notun sonuna ekle; mevcut bloklar ve not başlığı korunur.
+        updateNote(targetNote.id, { blocks: [...targetNote.blocks, ...blocks] })
+        setActiveNote(targetNote.id)
+        pushToast(
+          `${selectedSlides.length} slayt “${targetNote.title || 'Adsız not'}” notuna eklendi.`,
+          'success',
+        )
+        closeDialog()
+        return
+      }
+
       createNote({ title: deck.title, emoji: '📊', blocks })
       pushToast(
         `${selectedSlides.length} slayt ${aiApplied ? 'AI düzenlemesiyle ' : ''}not olarak açıldı.`,
@@ -653,6 +680,24 @@ export function SlideImportDialog() {
                 </select>
               </label>
             </div>
+
+            <label className="mt-2 block">
+              <span className="mb-1 block text-[0.62rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                Hedef
+              </span>
+              <select
+                value={targetNoteId}
+                onChange={(event) => setTargetNoteId(event.target.value)}
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs font-bold text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              >
+                <option value="new">Yeni not oluştur</option>
+                {noteOptions.map((note) => (
+                  <option key={note.id} value={note.id}>
+                    Mevcut nota ekle: {note.title || 'Adsız not'}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         )}
 
@@ -675,7 +720,7 @@ export function SlideImportDialog() {
             ) : (
               <Presentation className="size-4" />
             )}
-            {aiApplied ? 'AI sonucundan oluştur' : 'Notu oluştur'}
+            {targetNote ? 'Nota ekle' : aiApplied ? 'AI sonucundan oluştur' : 'Notu oluştur'}
           </button>
         </div>
       </div>
