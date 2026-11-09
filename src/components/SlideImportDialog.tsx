@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronRight,
   FileText,
   Loader2,
   Presentation,
@@ -43,6 +45,7 @@ export function SlideImportDialog() {
   const [aiProgress, setAiProgress] = useState<{ done: number; total: number } | null>(null)
   const [aiApplied, setAiApplied] = useState(false)
   const [aiError, setAiError] = useState('')
+  const [expandedSlide, setExpandedSlide] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const aiAbortRef = useRef<AbortController | null>(null)
 
@@ -65,6 +68,7 @@ export function SlideImportDialog() {
       setAiProgress(null)
       setAiApplied(false)
       setAiError('')
+      setExpandedSlide(null)
     }
   }, [dialog])
 
@@ -88,6 +92,7 @@ export function SlideImportDialog() {
     setError('')
     setAiError('')
     setAiApplied(false)
+    setExpandedSlide(null)
     setLoading(true)
 
     try {
@@ -195,6 +200,7 @@ export function SlideImportDialog() {
         warnings: deck.warnings,
       })
       setAiApplied(true)
+      setExpandedSlide(null)
 
       if (failedNumbers.length) {
         pushToast(
@@ -226,6 +232,7 @@ export function SlideImportDialog() {
     setDeck(rawDeck)
     setAiApplied(false)
     setAiError('')
+    setExpandedSlide(null)
   }
 
   const handleCreate = async () => {
@@ -343,27 +350,70 @@ export function SlideImportDialog() {
               </div>
             ) : null}
 
-            <div className="max-h-56 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)]">
-              {deck.slides.map((slide) => (
-                <div
-                  key={`${slide.number}-${slide.title}`}
-                  className="border-b border-[var(--border)] px-3 py-2 last:border-b-0"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="grid size-5 shrink-0 place-items-center rounded-md bg-[var(--surface-2)] text-[0.62rem] font-extrabold text-[var(--text-faint)]">
-                      {slide.number}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-[var(--text)]">
-                      {slide.title}
-                    </span>
-                    <span className="shrink-0 text-[0.62rem] font-semibold text-[var(--text-faint)]">
-                      {slide.items.length} öğe
-                      {slide.tables?.length ? ` · ${slide.tables.length} tablo` : ''}
-                      {slide.notes.length ? ' · not' : ''}
-                    </span>
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)]">
+              {deck.slides.map((slide) => {
+                const expanded = expandedSlide === slide.number
+                return (
+                  <div
+                    key={`${slide.number}-${slide.title}`}
+                    className="border-b border-[var(--border)] last:border-b-0"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedSlide(expanded ? null : slide.number)}
+                      aria-expanded={expanded}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-[var(--surface)]"
+                    >
+                      <span className="grid size-5 shrink-0 place-items-center rounded-md bg-[var(--surface-2)] text-[0.62rem] font-extrabold text-[var(--text-faint)]">
+                        {slide.number}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-[var(--text)]">
+                        {slide.title}
+                      </span>
+                      <span className="shrink-0 text-[0.62rem] font-semibold text-[var(--text-faint)]">
+                        {slide.items.length} öğe
+                        {slide.tables?.length ? ` · ${slide.tables.length} tablo` : ''}
+                        {slide.notes.length ? ' · not' : ''}
+                      </span>
+                      {expanded ? (
+                        <ChevronDown className="size-3.5 shrink-0 text-[var(--text-faint)]" />
+                      ) : (
+                        <ChevronRight className="size-3.5 shrink-0 text-[var(--text-faint)]" />
+                      )}
+                    </button>
+
+                    {expanded && (
+                      <div className="space-y-1 px-3 pb-2.5 pl-10 text-[0.7rem] font-semibold leading-relaxed text-[var(--text-soft)]">
+                        {slide.items.slice(0, 8).map((item, index) => (
+                          <p
+                            key={`${slide.number}-item-${index}`}
+                            style={{ paddingLeft: `${Math.min(3, item.level) * 0.75}rem` }}
+                          >
+                            {item.bullet ? '• ' : ''}
+                            {item.text}
+                          </p>
+                        ))}
+                        {slide.items.length > 8 && (
+                          <p className="text-[var(--text-faint)]">
+                            … {slide.items.length - 8} öğe daha
+                          </p>
+                        )}
+                        {slide.tables?.map((table, tableIndex) => (
+                          <p key={`${slide.number}-table-${tableIndex}`} className="text-[var(--text-faint)]">
+                            Tablo: {table.length}×{table[0]?.length ?? 0}
+                            {table[0]?.length ? ` — ${table[0].join(' | ')}` : ''}
+                          </p>
+                        ))}
+                        {slide.notes.map((note, noteIndex) => (
+                          <p key={`${slide.number}-note-${noteIndex}`} className="italic text-[var(--text-faint)]">
+                            Not: {note}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
