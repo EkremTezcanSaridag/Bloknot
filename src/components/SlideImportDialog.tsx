@@ -438,8 +438,8 @@ export function SlideImportDialog() {
         </div>
 
         <p className="text-[0.65rem] font-semibold leading-relaxed text-[var(--text-faint)]">
-          Metin çıkmayan görsel slaytlar ve taranmış PDF sayfaları resim olarak eklenir; bu
-          sürümde OCR yok. Metin varsa AI ile düzenleyebilirsin.
+          Metin çıkmayan görsel slaytlar, taranmış PDF sayfaları ve DOCX görselleri resim
+          olarak eklenir; bu sürümde OCR yok. Metin varsa AI ile düzenleyebilirsin.
         </p>
 
         {file && (
