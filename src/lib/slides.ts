@@ -920,7 +920,11 @@ export function pdfPageToSlide(
       previous &&
       shouldMergePdfLine(previous.line, line, previous.item.text)
     ) {
-      previous.item.text = cleanText(`${previous.item.text} ${text}`)
+      const hyphenated =
+        /[a-zçğıöşü]-$/.test(previous.item.text) && /^[a-zçğıöşü]/.test(text)
+      previous.item.text = hyphenated
+        ? `${previous.item.text.slice(0, -1)}${text}`
+        : cleanText(`${previous.item.text} ${text}`)
       previous.line = line
       continue
     }

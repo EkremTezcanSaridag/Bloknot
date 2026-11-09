@@ -435,6 +435,16 @@ describe('pdf çıkarımı', () => {
     expect(slide.title).toBe('Kalın Başlık')
   })
 
+  it('satır sonundaki tireyi kelimeyi bölmeden birleştirir', () => {
+    const slide = pdfPageToSlide(1, [
+      { str: 'Başlık', x: 50, y: 700, fontSize: 24 },
+      { str: 'Bu uzun bir keli-', x: 50, y: 650, fontSize: 12 },
+      { str: 'me devamı', x: 50, y: 632, fontSize: 12 },
+    ])
+
+    expect(slide.items[0].text).toBe('Bu uzun bir kelime devamı')
+  })
+
   it('uyarıları nota kutu olarak ekler', () => {
     const blocks = slidesToBlocks(
       {

@@ -186,7 +186,14 @@ export function SlideImportDialog() {
         }
       }
 
-      setDeck({ ...deck, title: deckTitle, slides: improvedSlides, warnings: deck.warnings })
+      setDeck({
+        ...deck,
+        title: deckTitle,
+        // Parçalar ayrı ayrı işlendiği için numaralar tekrar başlayabilir;
+        // birleşik destede sırayı koruyacak şekilde yeniden numaralandır.
+        slides: improvedSlides.map((slide, index) => ({ ...slide, number: index + 1 })),
+        warnings: deck.warnings,
+      })
       setAiApplied(true)
 
       if (failedNumbers.length) {
