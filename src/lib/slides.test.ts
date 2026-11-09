@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import JSZip from 'jszip'
 import {
   buildPdfLines,
+  collectRepeatedPdfLines,
   groupPdfTextItems,
   parsePptxArchive,
   pdfPageToSlide,
   slidesToBlocks,
+  type PdfPageData,
 } from './slides'
 
 const slideXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -317,6 +319,21 @@ describe('pptx gelişmiş çıkarım', () => {
     expect(deck.slides).toHaveLength(1)
     expect(deck.warnings?.[0]).toContain('1 slayt atlandı')
   })
+
+  it('gizli slaytları atlar ve uyarı ekler', async () => {
+    const zip = new JSZip()
+    zip.file('ppt/slides/slide1.xml', wrapSlide(textShape('title', 'Görünür slayt')))
+    zip.file(
+      'ppt/slides/slide2.xml',
+      wrapSlide(textShape('title', 'Gizli slayt')).replace('<p:sld ', '<p:sld show="0" '),
+    )
+
+    const deck = await parsePptxArchive(zip, 'Sunum')
+
+    expect(deck.slides).toHaveLength(1)
+    expect(deck.slides[0].title).toBe('Görünür slayt')
+    expect(deck.warnings?.some((warning) => warning.includes('1 gizli slayt atlandı'))).toBe(true)
+  })
 })
 
 describe('pdf çıkarımı', () => {
@@ -382,6 +399,40 @@ describe('pdf çıkarımı', () => {
     ])
 
     expect(lines).toEqual(['Başlık', 'Madde'])
+  })
+
+  it('sayfalarda tekrar eden üst/alt bilgi satırlarını ayıklar', () => {
+    const pages: PdfPageData[] = [1, 2, 3].map((number) => ({
+      number,
+      height: 800,
+      items: [
+        { str: 'Şirket Sunumu', x: 50, y: 780, fontSize: 10 },
+        { str: 'Sayfa ' + number, x: 300, y: 10, fontSize: 10 },
+        { str: 'Başlık ' + number, x: 50, y: 700, fontSize: 24 },
+        { str: 'İçerik ' + number, x: 50, y: 650, fontSize: 12 },
+      ],
+    }))
+
+    const repeated = collectRepeatedPdfLines(pages)
+
+    expect(repeated.has('şirket sunumu')).toBe(true)
+
+    const slide = pdfPageToSlide(1, pages[0].items, 800, repeated)
+
+    expect(slide.title).toBe('Başlık 1')
+    expect(slide.items.map((item) => item.text)).toEqual(['İçerik 1'])
+  })
+
+  it('aynı boyuttaki adaylar arasında kalın satırı başlık seçer', () => {
+    const slide = pdfPageToSlide(1, [
+      { str: 'Normal Üst Satır', x: 50, y: 700, fontSize: 18 },
+      { str: 'Kalın Başlık', x: 50, y: 680, fontSize: 18, fontFamily: 'Arial-Bold' },
+      { str: 'Gövde metni', x: 50, y: 400, fontSize: 12 },
+      { str: 'İkinci gövde', x: 50, y: 380, fontSize: 12 },
+      { str: 'Üçüncü gövde', x: 50, y: 360, fontSize: 12 },
+    ])
+
+    expect(slide.title).toBe('Kalın Başlık')
   })
 
   it('uyarıları nota kutu olarak ekler', () => {

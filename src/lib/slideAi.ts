@@ -89,6 +89,40 @@ export function deckToPromptText(deck: SlideDeck, limit = PROMPT_TEXT_LIMIT): st
   return `${text.slice(0, limit)}\n… (metin kısaltıldı)`
 }
 
+/**
+ * Uzun sunumları AI isteği başına parçalara böler. Böylece istem metni
+ * kısaltılmaz ve her slayt AI tarafından görülür.
+ */
+export function chunkDeckForAi(
+  deck: SlideDeck,
+  maxChars = 6_000,
+  maxSlides = 12,
+): SlideDeck[] {
+  if (!deck.slides.length) return []
+
+  const chunks: SlideDeck[] = []
+  let current: Slide[] = []
+  let currentChars = 0
+
+  for (const slide of deck.slides) {
+    const size = deckToPromptText({ ...deck, slides: [slide] }).length
+    const wouldExceed =
+      current.length > 0 && (current.length >= maxSlides || currentChars + size > maxChars)
+
+    if (wouldExceed) {
+      chunks.push({ ...deck, slides: current })
+      current = []
+      currentChars = 0
+    }
+
+    current.push(slide)
+    currentChars += size
+  }
+
+  if (current.length) chunks.push({ ...deck, slides: current })
+  return chunks
+}
+
 function modeInstruction(mode: SlideAiMode): string {
   switch (mode) {
     case 'summarize':

@@ -10,12 +10,13 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Modal } from './Modal'
-import { readPdfFile, readPptxFile, slidesToBlocks, type SlideDeck } from '../lib/slides'
+import { readPdfFile, readPptxFile, slidesToBlocks, type Slide, type SlideDeck } from '../lib/slides'
 import { AI_PROVIDERS, aiConfigFromSettings, chatComplete } from '../lib/ai'
 import { getAiKey } from '../lib/aiKey'
 import {
   SLIDE_AI_MODES,
   buildSlideAiPrompt,
+  chunkDeckForAi,
   parseSlideAiResponse,
   type SlideAiMode,
 } from '../lib/slideAi'
@@ -39,6 +40,7 @@ export function SlideImportDialog() {
   const [aiMode, setAiMode] = useState<SlideAiMode>('clean')
   const [aiExtra, setAiExtra] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
+  const [aiProgress, setAiProgress] = useState<{ done: number; total: number } | null>(null)
   const [aiApplied, setAiApplied] = useState(false)
   const [aiError, setAiError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -60,6 +62,7 @@ export function SlideImportDialog() {
       setDragging(false)
       setAiExtra('')
       setAiLoading(false)
+      setAiProgress(null)
       setAiApplied(false)
       setAiError('')
     }
@@ -138,35 +141,66 @@ export function SlideImportDialog() {
     }
 
     setAiLoading(true)
+    setAiProgress(null)
     const controller = new AbortController()
     aiAbortRef.current = controller
 
     try {
-      const { system, user } = buildSlideAiPrompt(deck, aiMode, aiExtra)
-      const maxTokens = Math.min(8000, Math.max(2000, 1000 + deck.slides.length * 240))
-      const text = await chatComplete(
-        aiConfigFromSettings(settings, apiKey),
-        [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        {
-          temperature: aiMode === 'clean' ? 0.2 : 0.35,
-          maxTokens,
-          json: true,
-          timeoutMs: 90_000,
-          signal: controller.signal,
-        },
-      )
+      const chunks = chunkDeckForAi(deck)
+      const total = chunks.length
+      if (total > 1) setAiProgress({ done: 0, total })
 
-      const improved = parseSlideAiResponse(text, deck.title)
-      setDeck({ ...improved, warnings: improved.warnings ?? deck.warnings })
+      const improvedSlides: Slide[] = []
+      const failedNumbers: number[] = []
+      let deckTitle = deck.title
+
+      for (let index = 0; index < chunks.length; index += 1) {
+        if (total > 1) setAiProgress({ done: index, total })
+        const chunk = chunks[index]
+
+        try {
+          const { system, user } = buildSlideAiPrompt(chunk, aiMode, aiExtra)
+          const maxTokens = Math.min(8000, Math.max(2000, 1000 + chunk.slides.length * 240))
+          const text = await chatComplete(
+            aiConfigFromSettings(settings, apiKey),
+            [
+              { role: 'system', content: system },
+              { role: 'user', content: user },
+            ],
+            {
+              temperature: aiMode === 'clean' ? 0.2 : 0.35,
+              maxTokens,
+              json: true,
+              timeoutMs: 90_000,
+              signal: controller.signal,
+            },
+          )
+
+          const improved = parseSlideAiResponse(text, chunk.title)
+          if (index === 0 && improved.title) deckTitle = improved.title
+          improvedSlides.push(...improved.slides)
+        } catch (caught) {
+          if (controller.signal.aborted) throw caught
+          failedNumbers.push(...chunk.slides.map((slide) => slide.number))
+          improvedSlides.push(...chunk.slides)
+        }
+      }
+
+      setDeck({ ...deck, title: deckTitle, slides: improvedSlides, warnings: deck.warnings })
       setAiApplied(true)
-      if (improved.slides.length < deck.slides.length) {
+
+      if (failedNumbers.length) {
         pushToast(
-          `AI ${improved.slides.length}/${deck.slides.length} slayt döndürdü. Gerekirse ham metne dönebilirsin.`,
+          `${failedNumbers.length} slayt AI ile düzenlenemedi; ham metin korundu.`,
           'default',
         )
+      } else if (improvedSlides.length < deck.slides.length) {
+        pushToast(
+          `AI ${improvedSlides.length}/${deck.slides.length} slayt döndürdü. Gerekirse ham metne dönebilirsin.`,
+          'default',
+        )
+      } else if (total > 1) {
+        pushToast(`AI ${total} parçada slayt metnini düzenledi.`, 'success')
       } else {
         pushToast('AI slayt metnini düzenledi.', 'success')
       }
@@ -176,6 +210,7 @@ export function SlideImportDialog() {
     } finally {
       if (aiAbortRef.current === controller) aiAbortRef.current = null
       setAiLoading(false)
+      setAiProgress(null)
     }
   }
 
@@ -387,7 +422,9 @@ export function SlideImportDialog() {
                     <Sparkles className="size-4" />
                   )}
                   {aiLoading
-                    ? 'AI düzenliyor…'
+                    ? aiProgress && aiProgress.total > 1
+                      ? `AI düzenliyor… (${Math.min(aiProgress.done + 1, aiProgress.total)}/${aiProgress.total})`
+                      : 'AI düzenliyor…'
                     : aiApplied
                       ? 'AI ile yeniden düzenle'
                       : 'AI ile düzenle'}

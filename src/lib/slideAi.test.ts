@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SlideDeck } from './slides'
 import {
   buildSlideAiPrompt,
+  chunkDeckForAi,
   deckToPromptText,
   parseSlideAiResponse,
 } from './slideAi'
@@ -46,6 +47,33 @@ describe('slayt AI istemi', () => {
     expect(prompt.user).toContain('ŞEMA:')
     expect(prompt.user).toContain('Ek istek: Sınav odaklı olsun')
     expect(prompt.user).toContain('SLAYT METNİ:')
+  })
+})
+
+describe('uzun sunum parçalama', () => {
+  it('küçük desteyi tek parça bırakır', () => {
+    expect(chunkDeckForAi(deck)).toHaveLength(1)
+  })
+
+  it('uzun desteyi sırayı koruyarak parçalara böler', () => {
+    const longDeck: SlideDeck = {
+      title: 'Uzun sunum',
+      slides: Array.from({ length: 30 }, (_, index) => ({
+        number: index + 1,
+        title: `Slayt ${index + 1}`,
+        items: [{ text: 'uzun metin '.repeat(40), bullet: true, level: 0 }],
+        notes: [],
+      })),
+    }
+
+    const chunks = chunkDeckForAi(longDeck, 4_000, 10)
+
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks.flatMap((chunk) => chunk.slides.map((slide) => slide.number))).toEqual(
+      longDeck.slides.map((slide) => slide.number),
+    )
+    expect(chunks.every((chunk) => chunk.slides.length > 0)).toBe(true)
+    expect(chunks.every((chunk) => chunk.slides.length <= 10)).toBe(true)
   })
 })
 

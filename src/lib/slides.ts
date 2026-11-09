@@ -486,15 +486,24 @@ function pickFallbackTitle(items: SlideTextItem[]): string {
   return items.splice(candidateIndex, 1)[0].text
 }
 
+interface ParsedSlide {
+  slide: Slide
+  hidden: boolean
+}
+
 async function parseSlide(
   zip: JSZip,
   slidePath: string,
   number: number,
-): Promise<Slide> {
+): Promise<ParsedSlide> {
   const slideXml = await zip.file(slidePath)?.async('string')
-  if (!slideXml) return { number, title: '', items: [], notes: [] }
+  if (!slideXml) {
+    return { slide: { number, title: '', items: [], notes: [] }, hidden: false }
+  }
 
   const document = parseXml(slideXml)
+  // Sunumda gizlenmiş slaytlar (<p:sld show="0">) nota dahil edilmez.
+  const hidden = attr(document.documentElement, 'show') === '0'
   const relationships = await getSlideRelationships(zip, slidePath)
   const collector: SlideCollector = { title: '', items: [], tables: [] }
 
@@ -519,11 +528,14 @@ async function parseSlide(
   const notes = notesFile ? parseNotes(await notesFile.async('string')) : []
 
   return {
-    number,
-    title: collector.title,
-    items: collector.items,
-    notes,
-    tables: collector.tables.length ? collector.tables : undefined,
+    slide: {
+      number,
+      title: collector.title,
+      items: collector.items,
+      notes,
+      tables: collector.tables.length ? collector.tables : undefined,
+    },
+    hidden,
   }
 }
 
@@ -535,9 +547,16 @@ export async function parsePptxArchive(
   const slidePaths = await getSlidePaths(zip)
   const slides: Slide[] = []
   let skipped = 0
+  let hiddenCount = 0
 
   for (let index = 0; index < slidePaths.length; index += 1) {
-    const slide = await parseSlide(zip, slidePaths[index], index + 1)
+    const { slide, hidden } = await parseSlide(zip, slidePaths[index], index + 1)
+
+    if (hidden) {
+      hiddenCount += 1
+      continue
+    }
+
     const hasContent =
       Boolean(slide.title) ||
       slide.items.length > 0 ||
@@ -556,6 +575,9 @@ export async function parsePptxArchive(
   const warnings: string[] = []
   if (skipped) {
     warnings.push(`${skipped} slayt atlandı: seçilebilir metin bulunamadı.`)
+  }
+  if (hiddenCount) {
+    warnings.push(`${hiddenCount} gizli slayt atlandı.`)
   }
 
   return {
@@ -585,6 +607,8 @@ export interface PdfTextItem {
   height?: number
   fontSize?: number
   fontName?: string
+  /** pdf.js stillerinden gelen font ailesi (ör. "Arial-Bold"). */
+  fontFamily?: string
   hasEOL?: boolean
 }
 
@@ -593,6 +617,8 @@ export interface PdfLine {
   x: number
   y: number
   fontSize: number
+  /** Satırdaki metin kalın fontla yazılmış mı? */
+  bold: boolean
   column: number
   gapBefore: number
 }
@@ -603,6 +629,10 @@ const PDF_PAGE_NUMBER = /^(?:sayfa\s*)?[-–—]?\s*\d{1,3}\s*(?:\/\s*\d{1,3})?$
 
 function pdfListMatch(text: string): RegExpMatchArray | null {
   return text.match(PDF_BULLET_MARKER) ?? text.match(PDF_NUMBERED_MARKER)
+}
+
+function isBoldItem(item: PdfTextItem): boolean {
+  return /bold|black|heavy|semibold|demi/i.test(item.fontFamily ?? '')
 }
 
 function fontSizeOf(item: PdfTextItem): number {
@@ -697,6 +727,7 @@ export function buildPdfLines(items: PdfTextItem[]): PdfLine[] {
           x: current[0].x,
           y: row.y,
           fontSize: Math.max(...current.map((item) => fontSizeOf(item))),
+          bold: current.some(isBoldItem),
           column: 0,
           gapBefore: 0,
         })
@@ -769,7 +800,11 @@ function pickPdfTitle(lines: PdfLine[]): PdfLine | null {
     )
     .sort((left, right) => right.fontSize - left.fontSize || right.y - left.y)
 
-  if (largest >= median * 1.15 && candidates.length) return candidates[0]
+  if (largest >= median * 1.15 && candidates.length) {
+    // Aynı boyuttaki adaylar arasında kalın yazılmış olanı başlık say.
+    const boldCandidate = candidates.find((line) => line.bold)
+    return boldCandidate ?? candidates[0]
+  }
   return lines[0]
 }
 
@@ -789,14 +824,79 @@ function shouldMergePdfLine(previousLine: PdfLine, line: PdfLine, previousText: 
   return startsLowercase || previousText.length > 55
 }
 
+/** Tekrar eden üst/alt bilgi satırlarını karşılaştırmak için metni sadeleştirir. */
+function normalizeRunningText(text: string): string {
+  return text
+    .toLocaleLowerCase('tr')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s\-–—|•·]+|[\s\-–—|•·]+$/g, '')
+    .trim()
+}
+
+export interface PdfPageData {
+  number: number
+  items: PdfTextItem[]
+  /** Sayfa yüksekliği (pdf.js viewport). Bilinmiyorsa 0. */
+  height: number
+}
+
+/**
+ * Sayfaların üst ve alt kenarında tekrar eden satırları (kurum adı, bölüm
+ * başlığı, tarih vb.) bulur. En az 3 sayfada görünenler ayıklanır.
+ */
+export function collectRepeatedPdfLines(pages: PdfPageData[]): Set<string> {
+  const repeated = new Set<string>()
+  if (pages.length < 3) return repeated
+
+  const pageNumbers = new Map<string, Set<number>>()
+
+  for (const page of pages) {
+    const lines = buildPdfLines(page.items)
+    if (!lines.length) continue
+
+    const ys = lines.map((line) => line.y)
+    const minY = Math.min(...ys)
+    const maxY = Math.max(...ys)
+    const largest = Math.max(...lines.map((line) => line.fontSize))
+    const height = page.height > 0 ? page.height : Math.max(1, maxY - minY)
+    const bottomLimit = minY + height * 0.14
+    const topLimit = maxY - height * 0.14
+
+    const seen = new Set<string>()
+    for (const line of lines) {
+      if (line.y > bottomLimit && line.y < topLimit) continue
+      // Sayfa başlığı büyük fontla yazılır; üst/alt bilgi sanılıp silinmesin.
+      if (line.fontSize >= largest * 0.9) continue
+      const key = normalizeRunningText(line.text)
+      if (key.length < 3 || seen.has(key)) continue
+      seen.add(key)
+
+      const numbers = pageNumbers.get(key) ?? new Set<number>()
+      numbers.add(page.number)
+      pageNumbers.set(key, numbers)
+    }
+  }
+
+  const threshold = Math.max(3, Math.ceil(pages.length * 0.6))
+  for (const [key, numbers] of pageNumbers) {
+    if (numbers.size >= threshold) repeated.add(key)
+  }
+  return repeated
+}
+
 /** Bir PDF sayfasının metin parçalarından slayt/not bölümü üretir. */
 export function pdfPageToSlide(
   number: number,
   items: PdfTextItem[],
   pageHeight = 0,
+  repeated: ReadonlySet<string> = new Set(),
 ): Slide {
   const allLines = buildPdfLines(items)
-  const lines = allLines.filter((line) => !isPdfPageNumber(line, allLines, pageHeight))
+  const lines = allLines.filter(
+    (line) =>
+      !isPdfPageNumber(line, allLines, pageHeight) &&
+      !repeated.has(normalizeRunningText(line.text)),
+  )
   if (!lines.length) return { number, title: '', items: [], notes: [] }
 
   const titleLine = pickPdfTitle(lines)
@@ -873,6 +973,7 @@ export async function readPdfFile(file: File): Promise<SlideDeck> {
   pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default
 
   const document = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
+  const pages: PdfPageData[] = []
   const slides: Slide[] = []
   let emptyPages = 0
 
@@ -881,6 +982,7 @@ export async function readPdfFile(file: File): Promise<SlideDeck> {
     const viewport = page.getViewport({ scale: 1 })
     const content = await page.getTextContent()
     const rawItems = content.items as PdfJsTextItem[]
+    const styles = content.styles as Record<string, { fontFamily?: string }> | undefined
     const items: PdfTextItem[] = []
 
     for (const item of rawItems) {
@@ -899,6 +1001,7 @@ export async function readPdfFile(file: File): Promise<SlideDeck> {
         height: item.height,
         fontSize,
         fontName: item.fontName,
+        fontFamily: item.fontName ? styles?.[item.fontName]?.fontFamily : undefined,
         hasEOL: item.hasEOL,
       })
     }
@@ -908,7 +1011,12 @@ export async function readPdfFile(file: File): Promise<SlideDeck> {
       continue
     }
 
-    const slide = pdfPageToSlide(pageNumber, items, viewport.height)
+    pages.push({ number: pageNumber, items, height: viewport.height })
+  }
+
+  const repeated = collectRepeatedPdfLines(pages)
+  for (const page of pages) {
+    const slide = pdfPageToSlide(page.number, page.items, page.height, repeated)
     if (slide.items.length || slide.title) slides.push(slide)
   }
 
