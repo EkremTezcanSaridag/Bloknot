@@ -24,6 +24,15 @@ import {
   type SlideAiMode,
 } from '../lib/slideAi'
 
+function isImageOnlySlide(slide: Slide): boolean {
+  return (
+    Boolean(slide.images?.length) &&
+    slide.items.length === 0 &&
+    !slide.tables?.length &&
+    slide.notes.length === 0
+  )
+}
+
 export function SlideImportDialog() {
   const dialog = useStore((state) => state.dialog)
   const closeDialog = useStore((state) => state.closeDialog)
@@ -134,6 +143,17 @@ export function SlideImportDialog() {
       return
     }
 
+    // Yalnızca görsel içeren slaytların metni yok; AI'ya gönderilmez, olduğu gibi korunur.
+    const aiSlides = selectedSlides.filter((slide) => !isImageOnlySlide(slide))
+    const imageOnlyCount = selectedSlides.length - aiSlides.length
+    if (!aiSlides.length) {
+      setAiError(
+        'Seçili slaytlarda AI ile düzenlenecek metin yok. Görseller olduğu gibi eklenir; ' +
+          'doğrudan “Notu oluştur”a basabilirsin.',
+      )
+      return
+    }
+
     if (!settings.aiBaseUrl.trim()) {
       setAiError('AI sunucu adresi tanımlı değil. Ayarlar > Yapay zekâ bölümünü kontrol et.')
       return
@@ -159,7 +179,7 @@ export function SlideImportDialog() {
     aiAbortRef.current = controller
 
     try {
-      const chunks = chunkDeckForAi({ ...deck, slides: selectedSlides })
+      const chunks = chunkDeckForAi({ ...deck, slides: aiSlides })
       const total = chunks.length
       if (total > 1) setAiProgress({ done: 0, total })
 
@@ -203,12 +223,17 @@ export function SlideImportDialog() {
         }
       }
 
+      // Görsel slaytlar AI'ya gönderilmediği için özgün sıralarına geri yerleştir.
+      const improvedByNumber = new Map<number, Slide>()
+      for (const slide of improvedSlides) improvedByNumber.set(slide.number, slide)
+      const finalSlides = selectedSlides.map((slide) => improvedByNumber.get(slide.number) ?? slide)
+
       setDeck({
         ...deck,
         title: deckTitle,
         // Parçalar ayrı ayrı işlendiği için numaralar tekrar başlayabilir;
         // birleşik destede sırayı koruyacak şekilde yeniden numaralandır.
-        slides: improvedSlides.map((slide, index) => ({ ...slide, number: index + 1 })),
+        slides: finalSlides.map((slide, index) => ({ ...slide, number: index + 1 })),
         warnings: deck.warnings,
       })
       setAiApplied(true)
@@ -224,6 +249,11 @@ export function SlideImportDialog() {
         pushToast(
           `${keptRaw} slayt AI yanıtında yoktu; ham metni korundu.`,
           'default',
+        )
+      } else if (imageOnlyCount) {
+        pushToast(
+          `AI ${aiSlides.length} metinli slaytı düzenledi; ${imageOnlyCount} görsel slayt olduğu gibi eklendi.`,
+          'success',
         )
       } else if (total > 1) {
         pushToast(`AI ${total} parçada slayt metnini düzenledi.`, 'success')
