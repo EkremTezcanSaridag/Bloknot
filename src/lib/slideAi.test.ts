@@ -4,6 +4,7 @@ import {
   buildSlideAiPrompt,
   chunkDeckForAi,
   deckToPromptText,
+  mergeAiChunk,
   parseSlideAiResponse,
 } from './slideAi'
 
@@ -74,6 +75,49 @@ describe('uzun sunum parçalama', () => {
     )
     expect(chunks.every((chunk) => chunk.slides.length > 0)).toBe(true)
     expect(chunks.every((chunk) => chunk.slides.length <= 10)).toBe(true)
+  })
+})
+
+describe('AI parçasını ham slaytlarla hizalama', () => {
+  const chunk: SlideDeck = {
+    title: 'Sunum',
+    slides: [
+      { number: 3, title: 'Üç', items: [{ text: 'a', bullet: true, level: 0 }], notes: [] },
+      { number: 4, title: 'Dört', items: [{ text: 'b', bullet: true, level: 0 }], notes: [] },
+      { number: 5, title: 'Beş', items: [{ text: 'c', bullet: true, level: 0 }], notes: [] },
+    ],
+  }
+
+  it('numaralar korunmuşsa eksik slaytın ham metnini kullanır', () => {
+    const improved: SlideDeck = {
+      title: 'Sunum',
+      slides: [
+        { number: 3, title: 'Üç (AI)', items: [{ text: 'a', bullet: true, level: 0 }], notes: [] },
+        { number: 5, title: 'Beş (AI)', items: [{ text: 'c', bullet: true, level: 0 }], notes: [] },
+      ],
+    }
+
+    const merged = mergeAiChunk(chunk, improved)
+
+    expect(merged.slides.map((slide) => slide.title)).toEqual(['Üç (AI)', 'Dört', 'Beş (AI)'])
+    expect(merged.slides.map((slide) => slide.number)).toEqual([3, 4, 5])
+    expect(merged.keptRaw).toBe(1)
+  })
+
+  it('AI yeniden numaralandırdıysa sırayla eşleştirir', () => {
+    const improved: SlideDeck = {
+      title: 'Sunum',
+      slides: [
+        { number: 1, title: 'Bir (AI)', items: [{ text: 'a', bullet: true, level: 0 }], notes: [] },
+        { number: 2, title: 'İki (AI)', items: [{ text: 'b', bullet: true, level: 0 }], notes: [] },
+      ],
+    }
+
+    const merged = mergeAiChunk(chunk, improved)
+
+    expect(merged.slides.map((slide) => slide.title)).toEqual(['Bir (AI)', 'İki (AI)', 'Beş'])
+    expect(merged.slides.map((slide) => slide.number)).toEqual([3, 4, 5])
+    expect(merged.keptRaw).toBe(1)
   })
 })
 

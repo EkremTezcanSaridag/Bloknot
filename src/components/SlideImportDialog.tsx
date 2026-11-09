@@ -19,6 +19,7 @@ import {
   SLIDE_AI_MODES,
   buildSlideAiPrompt,
   chunkDeckForAi,
+  mergeAiChunk,
   parseSlideAiResponse,
   type SlideAiMode,
 } from '../lib/slideAi'
@@ -164,6 +165,7 @@ export function SlideImportDialog() {
 
       const improvedSlides: Slide[] = []
       const failedNumbers: number[] = []
+      let keptRaw = 0
       let deckTitle = deck.title
 
       for (let index = 0; index < chunks.length; index += 1) {
@@ -190,7 +192,9 @@ export function SlideImportDialog() {
 
           const improved = parseSlideAiResponse(text, chunk.title)
           if (index === 0 && improved.title) deckTitle = improved.title
-          improvedSlides.push(...improved.slides)
+          const merged = mergeAiChunk(chunk, improved)
+          keptRaw += merged.keptRaw
+          improvedSlides.push(...merged.slides)
         } catch (caught) {
           if (controller.signal.aborted) throw caught
           failedNumbers.push(...chunk.slides.map((slide) => slide.number))
@@ -215,9 +219,9 @@ export function SlideImportDialog() {
           `${failedNumbers.length} slayt AI ile düzenlenemedi; ham metin korundu.`,
           'default',
         )
-      } else if (improvedSlides.length < selectedSlides.length) {
+      } else if (keptRaw) {
         pushToast(
-          `AI ${improvedSlides.length}/${selectedSlides.length} slayt döndürdü. Gerekirse ham metne dönebilirsin.`,
+          `${keptRaw} slayt AI yanıtında yoktu; ham metni korundu.`,
           'default',
         )
       } else if (total > 1) {

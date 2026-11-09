@@ -123,6 +123,42 @@ export function chunkDeckForAi(
   return chunks
 }
 
+export interface AiChunkMerge {
+  slides: Slide[]
+  /** AI yanıtında bulunmayıp ham metni korunan slayt sayısı. */
+  keptRaw: number
+}
+
+/**
+ * AI yanıtını gönderilen parçayla hizalar. Slayt sayısı ve sırası korunur;
+ * AI bir slaytı atlarsa o slaytın ham metni kullanılır. Böylece modelin
+ * eksik yanıt vermesi içerik kaybına yol açmaz.
+ */
+export function mergeAiChunk(chunk: SlideDeck, improved: SlideDeck): AiChunkMerge {
+  const numbers = new Set(chunk.slides.map((slide) => slide.number))
+  const byNumber = new Map<number, Slide>()
+  for (const slide of improved.slides) {
+    if (numbers.has(slide.number) && !byNumber.has(slide.number)) {
+      byNumber.set(slide.number, slide)
+    }
+  }
+
+  // Model slayt numaralarını koruduysa numarayla, yeniden numaralandırdıysa
+  // sırayla eşleştir.
+  const matchByNumber = byNumber.size > 0
+  let keptRaw = 0
+  const slides = chunk.slides.map((raw, index) => {
+    const ai = matchByNumber ? byNumber.get(raw.number) : improved.slides[index]
+    if (!ai) {
+      keptRaw += 1
+      return raw
+    }
+    return { ...ai, number: raw.number }
+  })
+
+  return { slides, keptRaw }
+}
+
 function modeInstruction(mode: SlideAiMode): string {
   switch (mode) {
     case 'summarize':
