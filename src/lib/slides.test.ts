@@ -136,6 +136,26 @@ describe('pptx', () => {
     expect(blocks.map((block) => block.type)).toEqual(['heading1', 'paragraph', 'bulleted'])
     expect(blocks[1].html).toContain('Başlık')
   })
+
+  it('boş konuşmacı notları için alıntı bloğu üretmez', () => {
+    const blocks = slidesToBlocks(
+      {
+        title: 'Sunum',
+        slides: [
+          {
+            number: 1,
+            title: 'Başlık',
+            items: [{ text: 'Madde 1', bullet: true, level: 0 }],
+            notes: ['', '   '],
+          },
+        ],
+      },
+      'sections',
+      true,
+    )
+
+    expect(blocks.some((block) => block.type === 'quote')).toBe(false)
+  })
 })
 
 const NS = `xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"

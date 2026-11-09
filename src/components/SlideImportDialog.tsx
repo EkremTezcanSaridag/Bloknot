@@ -5,6 +5,7 @@ import {
   ChevronRight,
   FileText,
   Loader2,
+  Pencil,
   Presentation,
   RotateCcw,
   Sparkles,
@@ -59,6 +60,7 @@ export function SlideImportDialog() {
   const [aiApplied, setAiApplied] = useState(false)
   const [aiError, setAiError] = useState('')
   const [expandedSlide, setExpandedSlide] = useState<number | null>(null)
+  const [editingSlide, setEditingSlide] = useState<number | null>(null)
   const [excluded, setExcluded] = useState<Set<number>>(() => new Set())
   const [targetNoteId, setTargetNoteId] = useState('new')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -93,6 +95,7 @@ export function SlideImportDialog() {
       setAiApplied(false)
       setAiError('')
       setExpandedSlide(null)
+      setEditingSlide(null)
       setExcluded(new Set())
       setTargetNoteId('new')
     }
@@ -119,6 +122,7 @@ export function SlideImportDialog() {
     setAiError('')
     setAiApplied(false)
     setExpandedSlide(null)
+    setEditingSlide(null)
     setExcluded(new Set())
     setLoading(true)
 
@@ -258,6 +262,7 @@ export function SlideImportDialog() {
         })
         setAiApplied(true)
         setExpandedSlide(null)
+        setEditingSlide(null)
         setExcluded(new Set())
 
         if (failedNumbers.length) {
@@ -294,6 +299,7 @@ export function SlideImportDialog() {
     setAiApplied(false)
     setAiError('')
     setExpandedSlide(null)
+    setEditingSlide(null)
   }
 
   const toggleSlide = (number: number) => {
@@ -303,6 +309,19 @@ export function SlideImportDialog() {
       else next.add(number)
       return next
     })
+  }
+
+  const updateSlide = (number: number, patch: (slide: Slide) => Slide) => {
+    setDeck((current) =>
+      current
+        ? {
+            ...current,
+            slides: current.slides.map((slide) =>
+              slide.number === number ? patch(slide) : slide,
+            ),
+          }
+        : current,
+    )
   }
 
   const toggleAllSlides = () => {
@@ -458,9 +477,10 @@ export function SlideImportDialog() {
             <div className="max-h-64 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)]">
               {deck.slides.map((slide) => {
                 const expanded = expandedSlide === slide.number
+                const editing = editingSlide === slide.number
                 return (
                   <div
-                    key={`${slide.number}-${slide.title}`}
+                    key={slide.number}
                     className="border-b border-[var(--border)] last:border-b-0"
                   >
                     <div className="flex items-center gap-2 px-3 py-2 transition hover:bg-[var(--surface)]">
@@ -473,7 +493,14 @@ export function SlideImportDialog() {
                       />
                       <button
                         type="button"
-                        onClick={() => setExpandedSlide(expanded ? null : slide.number)}
+                        onClick={() => {
+                          if (expanded) {
+                            setExpandedSlide(null)
+                            setEditingSlide(null)
+                          } else {
+                            setExpandedSlide(slide.number)
+                          }
+                        }}
                         aria-expanded={expanded}
                         className={`flex min-w-0 flex-1 items-center gap-2 text-left ${
                           excluded.has(slide.number) ? 'opacity-50' : ''
@@ -501,39 +528,122 @@ export function SlideImportDialog() {
 
                     {expanded && (
                       <div className="space-y-1 px-3 pb-2.5 pl-10 text-[0.7rem] font-semibold leading-relaxed text-[var(--text-soft)]">
-                        {slide.items.slice(0, 8).map((item, index) => (
-                          <p
-                            key={`${slide.number}-item-${index}`}
-                            style={{ paddingLeft: `${Math.min(3, item.level) * 0.75}rem` }}
+                        <div className="flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setEditingSlide(editing ? null : slide.number)}
+                            className="inline-flex items-center gap-1 text-[0.62rem] font-extrabold text-[var(--accent-strong)] transition hover:underline"
                           >
-                            {item.bullet ? '• ' : ''}
-                            {item.text}
-                          </p>
-                        ))}
-                        {slide.items.length > 8 && (
-                          <p className="text-[var(--text-faint)]">
-                            … {slide.items.length - 8} öğe daha
-                          </p>
+                            <Pencil className="size-3" />
+                            {editing ? 'Bitti' : 'Metni düzenle'}
+                          </button>
+                        </div>
+
+                        {editing ? (
+                          <div className="space-y-1.5">
+                            <input
+                              value={slide.title}
+                              onChange={(event) =>
+                                updateSlide(slide.number, (current) => ({
+                                  ...current,
+                                  title: event.target.value,
+                                }))
+                              }
+                              placeholder="Slayt başlığı"
+                              aria-label={`Slayt ${slide.number} başlığı`}
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[0.7rem] font-bold text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                            />
+
+                            {slide.items.map((item, index) => (
+                              <div
+                                key={`${slide.number}-edit-item-${index}`}
+                                className="flex items-center gap-1.5"
+                                style={{ paddingLeft: `${Math.min(3, item.level) * 0.75}rem` }}
+                              >
+                                <span className="shrink-0 text-[var(--text-faint)]">
+                                  {item.bullet ? '•' : '¶'}
+                                </span>
+                                <input
+                                  value={item.text}
+                                  onChange={(event) =>
+                                    updateSlide(slide.number, (current) => ({
+                                      ...current,
+                                      items: current.items.map((entry, itemIndex) =>
+                                        itemIndex === index
+                                          ? { ...entry, text: event.target.value }
+                                          : entry,
+                                      ),
+                                    }))
+                                  }
+                                  aria-label={`Slayt ${slide.number} ${index + 1}. öğe`}
+                                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[0.7rem] font-semibold text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                                />
+                              </div>
+                            ))}
+
+                            <label className="block">
+                              <span className="mb-1 block text-[0.62rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                                Konuşmacı notları (her satır ayrı not)
+                              </span>
+                              <textarea
+                                value={slide.notes.join('\n')}
+                                onChange={(event) =>
+                                  updateSlide(slide.number, (current) => ({
+                                    ...current,
+                                    notes: event.target.value.split('\n'),
+                                  }))
+                                }
+                                rows={2}
+                                aria-label={`Slayt ${slide.number} konuşmacı notları`}
+                                className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[0.7rem] font-semibold text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <>
+                            {slide.items.slice(0, 8).map((item, index) => (
+                              <p
+                                key={`${slide.number}-item-${index}`}
+                                style={{ paddingLeft: `${Math.min(3, item.level) * 0.75}rem` }}
+                              >
+                                {item.bullet ? '• ' : ''}
+                                {item.text}
+                              </p>
+                            ))}
+                            {slide.items.length > 8 && (
+                              <p className="text-[var(--text-faint)]">
+                                … {slide.items.length - 8} öğe daha
+                              </p>
+                            )}
+                            {slide.tables?.map((table, tableIndex) => (
+                              <p
+                                key={`${slide.number}-table-${tableIndex}`}
+                                className="text-[var(--text-faint)]"
+                              >
+                                Tablo: {table.length}×{table[0]?.length ?? 0}
+                                {table[0]?.length ? ` — ${table[0].join(' | ')}` : ''}
+                              </p>
+                            ))}
+                            {slide.images?.map((src, imageIndex) => (
+                              <img
+                                key={`${slide.number}-image-${imageIndex}`}
+                                src={src}
+                                alt={`Slayt ${slide.number} görseli`}
+                                className="mt-1.5 max-h-40 w-auto max-w-full rounded-lg border border-[var(--border)] object-contain"
+                              />
+                            ))}
+                            {slide.notes
+                              .filter((note) => note.trim())
+                              .map((note, noteIndex) => (
+                                <p
+                                  key={`${slide.number}-note-${noteIndex}`}
+                                  className="italic text-[var(--text-faint)]"
+                                >
+                                  Not: {note}
+                                </p>
+                              ))}
+                          </>
                         )}
-                        {slide.tables?.map((table, tableIndex) => (
-                          <p key={`${slide.number}-table-${tableIndex}`} className="text-[var(--text-faint)]">
-                            Tablo: {table.length}×{table[0]?.length ?? 0}
-                            {table[0]?.length ? ` — ${table[0].join(' | ')}` : ''}
-                          </p>
-                        ))}
-                        {slide.images?.map((src, imageIndex) => (
-                          <img
-                            key={`${slide.number}-image-${imageIndex}`}
-                            src={src}
-                            alt={`Slayt ${slide.number} görseli`}
-                            className="mt-1.5 max-h-40 w-auto max-w-full rounded-lg border border-[var(--border)] object-contain"
-                          />
-                        ))}
-                        {slide.notes.map((note, noteIndex) => (
-                          <p key={`${slide.number}-note-${noteIndex}`} className="italic text-[var(--text-faint)]">
-                            Not: {note}
-                          </p>
-                        ))}
                       </div>
                     )}
                   </div>

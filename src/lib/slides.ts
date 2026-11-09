@@ -1247,10 +1247,13 @@ export function slidesToBlocks(
         blocks.push(newBlock('image', { src: image, caption: slide.title }))
       }
 
-      if (includeNotes && slide.notes.length) {
+      if (includeNotes && slide.notes.some((note) => note.trim())) {
         blocks.push(
           newBlock('quote', {
-            html: textToHtml(slide.notes.join(' '), markdown),
+            html: textToHtml(
+              slide.notes.filter((note) => note.trim()).join(' '),
+              markdown,
+            ),
           }),
         )
       }
@@ -1281,10 +1284,13 @@ export function slidesToBlocks(
         blocks.push(newBlock('image', { src: image, caption: slide.title }))
       }
 
-      if (includeNotes && slide.notes.length) {
+      if (includeNotes && slide.notes.some((note) => note.trim())) {
         blocks.push(
           newBlock('quote', {
-            html: textToHtml(slide.notes.join(' '), markdown),
+            html: textToHtml(
+              slide.notes.filter((note) => note.trim()).join(' '),
+              markdown,
+            ),
           }),
         )
       }
