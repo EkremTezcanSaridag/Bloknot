@@ -38,6 +38,7 @@ export function FormattingToolbar() {
   const [menu, setMenu] = useState<Menu>(null)
   const [pointValue, setPointValue] = useState('12')
   const [noteQuery, setNoteQuery] = useState('')
+  const [noteIndex, setNoteIndex] = useState(0)
   const savedRange = useRef<Range | null>(null)
   const interacting = useRef(false)
   const interactionTimer = useRef<number | null>(null)
@@ -111,6 +112,10 @@ export function FormattingToolbar() {
   useEffect(() => {
     if (menu !== 'note') setNoteQuery('')
   }, [menu])
+
+  useEffect(() => {
+    setNoteIndex(0)
+  }, [noteQuery, menu])
 
   if (!position) return null
 
@@ -421,6 +426,23 @@ export function FormattingToolbar() {
               autoFocus
               value={noteQuery}
               onChange={(event) => setNoteQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault()
+                  setNoteIndex((index) => Math.min(index + 1, linkCandidates.length - 1))
+                  return
+                }
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault()
+                  setNoteIndex((index) => Math.max(index - 1, 0))
+                  return
+                }
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  const item = linkCandidates[noteIndex]
+                  if (item) insertNoteLink(item.id, item.title || 'Başlıksız not')
+                }
+              }}
               onMouseDown={(event) => {
                 event.stopPropagation()
                 markInteracting()
@@ -437,13 +459,18 @@ export function FormattingToolbar() {
                   Uygun not bulunamadı.
                 </p>
               ) : (
-                linkCandidates.map((item) => (
+                linkCandidates.map((item, index) => (
                   <button
                     key={item.id}
                     type="button"
                     role="menuitem"
                     onClick={() => insertNoteLink(item.id, item.title || 'Başlıksız not')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-bold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                    onMouseEnter={() => setNoteIndex(index)}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-bold transition ${
+                      index === noteIndex
+                        ? 'bg-[var(--surface-2)] text-[var(--text)]'
+                        : 'text-[var(--text-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                    }`}
                   >
                     <span className="shrink-0 text-sm">{item.emoji}</span>
                     <span className="min-w-0 flex-1 truncate">{item.title || 'Başlıksız not'}</span>
@@ -453,7 +480,7 @@ export function FormattingToolbar() {
             </div>
 
             <p className="mt-1 px-1 text-[0.58rem] font-semibold text-[var(--text-faint)]">
-              Seçili metin bağlantı olarak kalır.
+              Seçili metin bağlantı olur · ↑↓ gez, Enter seç
             </p>
           </div>
         )}
