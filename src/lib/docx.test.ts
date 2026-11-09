@@ -184,6 +184,23 @@ describe('docx çıkarımı', () => {
     expect(deck.slides[0].images).toHaveLength(1)
   })
 
+  it('Türkçe başlık stil kimliklerini tanır', async () => {
+    const zip = new JSZip()
+    zip.file(
+      'word/document.xml',
+      wrapDocument(`
+        ${paragraph('Bölüm', { style: 'Baslik1' })}
+        ${paragraph('Bölüm metni')}
+      `),
+    )
+
+    const deck = await parseDocxArchive(zip, 'Belge')
+
+    expect(deck.slides).toHaveLength(1)
+    expect(deck.slides[0].title).toBe('Bölüm')
+    expect(deck.slides[0].items[0].text).toBe('Bölüm metni')
+  })
+
   it('boş belgede okunabilir metin hatası verir', async () => {
     const zip = new JSZip()
     zip.file('word/document.xml', wrapDocument(''))

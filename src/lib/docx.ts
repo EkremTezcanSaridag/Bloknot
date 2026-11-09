@@ -101,9 +101,9 @@ function outlineLevel(paragraph: Element): number | null {
 /** Başlık düzeyi: 1 = Heading1/Title, 2 = Heading2/Subtitle… */
 function headingLevel(paragraph: Element): number | null {
   const style = styleId(paragraph)
-  if (style === 'title') return 1
-  if (style === 'subtitle') return 2
-  const match = style.match(/^(?:heading|baslik)(\d)$/)
+  if (style === 'title' || style === 'baslik') return 1
+  if (style === 'subtitle' || style === 'altbaslik') return 2
+  const match = style.match(/^(?:heading|baslik)\s*(\d)$/)
   if (match) return Number(match[1])
 
   const outline = outlineLevel(paragraph)
