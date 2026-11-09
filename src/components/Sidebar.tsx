@@ -143,7 +143,7 @@ export function Sidebar() {
           className="mt-2 flex w-full items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-extrabold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
         >
           <Presentation className="size-4" />
-          Slayttan not
+          Dosyadan not
         </button>
       </div>
 

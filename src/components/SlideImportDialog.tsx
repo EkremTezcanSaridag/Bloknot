@@ -14,6 +14,7 @@ import {
 import { useStore } from '../store/useStore'
 import { Modal } from './Modal'
 import { readPdfFile, readPptxFile, slidesToBlocks, type Slide, type SlideDeck } from '../lib/slides'
+import { readDocxFile } from '../lib/docx'
 import { AI_PROVIDERS, aiConfigFromSettings, chatComplete } from '../lib/ai'
 import { getAiKey } from '../lib/aiKey'
 import {
@@ -105,12 +106,15 @@ export function SlideImportDialog() {
     const lowerName = next.name.toLowerCase()
     const isPptx = lowerName.endsWith('.pptx')
     const isPdf = lowerName.endsWith('.pdf')
+    const isDocx = lowerName.endsWith('.docx')
 
-    if (!isPptx && !isPdf) {
+    if (!isPptx && !isPdf && !isDocx) {
       setError(
         lowerName.endsWith('.ppt')
           ? 'Eski .ppt biçimi desteklenmiyor. Sunumu .pptx olarak kaydedip tekrar dene.'
-          : 'Lütfen bir .pptx veya .pdf dosyası seç.',
+          : lowerName.endsWith('.doc')
+            ? 'Eski .doc biçimi desteklenmiyor. Belgeyi .docx olarak kaydedip tekrar dene.'
+            : 'Lütfen bir .pptx, .pdf veya .docx dosyası seç.',
       )
       return
     }
@@ -127,7 +131,11 @@ export function SlideImportDialog() {
     setLoading(true)
 
     try {
-      const parsed = isPdf ? await readPdfFile(next) : await readPptxFile(next)
+      const parsed = isDocx
+        ? await readDocxFile(next)
+        : isPdf
+          ? await readPdfFile(next)
+          : await readPptxFile(next)
       if (!parsed.slides.length) {
         throw new Error('Bu dosyadan metin çıkaramadım.')
       }
@@ -374,8 +382,8 @@ export function SlideImportDialog() {
     <Modal
       open={dialog === 'slides'}
       onClose={closeDialog}
-      title="Slayttan not"
-      subtitle="PPTX veya PDF dosyasını sürükle veya seç. Metin tarayıcıda çıkarılır; dosya sunucuya gönderilmez."
+      title="Dosyadan not"
+      subtitle="PPTX, PDF veya DOCX dosyasını sürükle veya seç. Metin tarayıcıda çıkarılır; dosya sunucuya gönderilmez."
       size="lg"
     >
       <div className="space-y-4">
@@ -393,7 +401,7 @@ export function SlideImportDialog() {
           }`}
         >
           <Upload className="mx-auto size-6 text-[var(--accent-strong)]" />
-          <p className="mt-2 text-sm font-extrabold">PPTX veya PDF dosyasını buraya sürükle</p>
+          <p className="mt-2 text-sm font-extrabold">PPTX, PDF veya DOCX dosyasını buraya sürükle</p>
           <p className="mt-1 text-xs font-semibold text-[var(--text-faint)]">
             veya dosya seç. Metin tarayıcıda çıkarılır.
           </p>
@@ -410,7 +418,7 @@ export function SlideImportDialog() {
           <input
             ref={inputRef}
             type="file"
-            accept=".pptx,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf"
+            accept=".pptx,.pdf,.docx,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="hidden"
             onChange={(event) => {
               const next = event.target.files?.[0]

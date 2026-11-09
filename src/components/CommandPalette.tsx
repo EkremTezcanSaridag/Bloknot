@@ -7,6 +7,7 @@ import {
   LayoutTemplate,
   Moon,
   Plus,
+  Presentation,
   Search,
   Sparkles,
   Star,
@@ -86,6 +87,13 @@ export function CommandPalette() {
         hint: 'Toplantı, günlük, kitap notu…',
         icon: LayoutTemplate,
         run: () => openDialog('templates'),
+      },
+      {
+        id: 'slides',
+        label: 'Dosyadan not oluştur',
+        hint: 'PPTX, PDF veya DOCX',
+        icon: Presentation,
+        run: () => openDialog('slides'),
       },
       {
         id: 'random',

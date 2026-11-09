@@ -23,7 +23,7 @@ Bloknot, tarayıcında çalışan; hesap açmadan kullanabileceğin, blok tabanl
 - **Yedekleme.** JSON yedeği indir/geri yükle, Markdown içe/dışa aktar, son 5 anlık yedeği geri döndür.
 - **Tema ve vurgu rengi.** Açık/koyu/sistem teması ve beş farklı vurgu rengi.
 - **AI asistan.** Notunu düzelt, özetle, şekillendir veya Mermaid şemasına çevir. Groq, OpenRouter, xAI ve OpenAI uyumlu uç noktalar desteklenir.
-- **Slayttan not + AI.** PPTX/PDF'ten başlık, madde, tablo, grafik/SmartArt metni ve konuşmacı notlarını tarayıcıda çıkar; istersen AI ile düzenle, özetle veya ders notuna çevir.
+- **Dosyadan not + AI.** PPTX, PDF veya DOCX'ten başlık, madde, tablo, grafik/SmartArt metni ve konuşmacı notlarını tarayıcıda çıkar; istersen AI ile düzenle, özetle veya ders notuna çevir.
 - **Küçük mutluluklar.** Yapılacak işi tamamlayınca konfeti, hafif arayüz sesleri, ilham soruları.
 - **Çevrimdışı PWA.** Ana ekrana ekle, internet olmadan da yaz.
 - **Mobil uyumlu.** Telefonda da rahat kullanılır.
@@ -80,12 +80,13 @@ Alternatif olarak **OpenRouter**, **xAI** veya OpenAI uyumlu özel bir uç nokta
 
 Kendi anahtarların varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu cihazda hatırla" ile localStorage'a kaydedebilirsin. Paylaşımlı modda anahtar tarayıcıya hiç inmez; Cloudflare Worker'da kalır.
 
-## Slayttan not ve AI
+## Dosyadan not ve AI
 
-**Slayttan not** penceresinde bir `.pptx` veya `.pdf` dosyası seçtiğinde metin tamamen tarayıcında çıkarılır; dosya hiçbir sunucuya yüklenmez.
+**Dosyadan not** penceresinde bir `.pptx`, `.pdf` veya `.docx` dosyası seçtiğinde metin tamamen tarayıcında çıkarılır; dosya hiçbir sunucuya yüklenmez.
 
 - **PPTX:** başlık ve alt başlık yer tutucuları, madde listeleri, grup içindeki şekiller, tablolar, grafik başlığı/seri/kategori/değerleri, SmartArt metinleri ve konuşmacı notları okunur; gizli slaytlar atlanır. Metin çıkmayan görsel slaytlar en büyük görselleriyle resim olarak eklenir.
 - **PDF:** font boyutundan ve kalın yazıdan başlık seçilir, satır kaydırmaları birleştirilir, iki sütunlu sayfalar sütun sırasına göre dizilir, sayfa numaraları ve sayfalarda tekrar eden üst/alt bilgi satırları ayıklanır. Taranmış sayfalar resim olarak eklenir.
+- **DOCX:** Heading 1/2 stilleri ve ana hat düzeyleri bölüm başlığı olarak kullanılır; maddeler, numaralı listeler ve tablolar okunur. Belgedeki görseller bu sürümde nota eklenmez.
 - **AI adımı isteğe bağlıdır.** “Düzenle ve netleştir”, “Slayt slayt özetle” veya “Ders notuna çevir” modlarından birini seçip AI ile düzenleyebilirsin. Yalnızca çıkarılan slayt metni AI sağlayıcısına gönderilir; dosya gönderilmez.
 - **Slayt seçimi.** Önizlemede slaytları tek tek işaretleyerek nota ve AI’ya dahil edilecekleri seç; kapak, teşekkür veya ek slaytları kolayca çıkar.
 - **Elle düzeltme.** Önizlemede bir slaytı açıp “Metni düzenle” ile başlığı, maddeleri ve konuşmacı notlarını AI’ya gerek kalmadan düzeltebilirsin.
