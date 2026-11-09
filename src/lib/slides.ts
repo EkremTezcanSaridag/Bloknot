@@ -17,6 +17,8 @@ export interface Slide {
   notes: string[]
   /** Slayttaki tablolar: tablo → satır → hücre. */
   tables?: string[][][]
+  /** Metin çıkmayan görsel slaytlar için resim (data URL). */
+  images?: string[]
 }
 
 export interface SlideDeck {
@@ -264,6 +266,8 @@ interface SlideCollector {
   tables: string[][][]
   /** Slaytta resim var mı? (Metin çıkmayan görsel slaytları ayırt etmek için.) */
   hasVisual: boolean
+  /** Slayttaki resimlerin ilişki kimlikleri. */
+  imageTargets: string[]
 }
 
 function collectTextShape(shape: Element, collector: SlideCollector): void {
@@ -385,6 +389,12 @@ function extractChartItems(document: Document): SlideTextItem[] {
   return items
 }
 
+function collectPictureTarget(picture: Element, collector: SlideCollector): void {
+  const blip = firstByLocalName(picture, 'blip')
+  const embed = attr(blip, 'embed', R_NS) || attr(blip, 'embed')
+  if (embed && !collector.imageTargets.includes(embed)) collector.imageTargets.push(embed)
+}
+
 function collectPictureAltText(picture: Element, collector: SlideCollector): void {
   const properties = firstByLocalName(picture, 'cNvPr')
   const description = cleanText(attr(properties, 'descr') || attr(properties, 'title'))
@@ -468,6 +478,7 @@ async function collectShapeTree(
         break
       case 'pic':
         collector.hasVisual = true
+        collectPictureTarget(element, collector)
         collectPictureAltText(element, collector)
         break
       default:
@@ -496,6 +507,56 @@ interface ParsedSlide {
   hasVisual: boolean
 }
 
+const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+}
+
+/** Küçük logo ve ikonları atlamak için en az bu kadar base64 karakteri. */
+const MIN_SLIDE_IMAGE_LENGTH = 8_000
+
+/**
+ * Metin çıkmayan bir slaytın en büyük görselini data URL olarak döndürür.
+ * Taranmış slayt destelerinde slaytın kendisi genellikle en büyük resimdir.
+ */
+async function loadLargestSlideImage(
+  zip: JSZip,
+  slidePath: string,
+  relationships: Map<string, SlideRelation>,
+  targetIds: string[],
+): Promise<string | null> {
+  const slideDir = slidePath.slice(0, slidePath.lastIndexOf('/'))
+  const seen = new Set<string>()
+  let best: { base64: string; mime: string; length: number } | null = null
+
+  for (const id of targetIds) {
+    const relationship = relationships.get(id)
+    if (!relationship) continue
+
+    const path = resolveZipPath(slideDir, relationship.target)
+    if (seen.has(path)) continue
+    seen.add(path)
+
+    const extension = path.split('.').pop()?.toLowerCase() ?? ''
+    const mime = IMAGE_MIME_BY_EXTENSION[extension]
+    if (!mime) continue
+
+    const file = zip.file(path)
+    if (!file) continue
+
+    const base64 = await file.async('base64')
+    if (base64.length < MIN_SLIDE_IMAGE_LENGTH) continue
+    if (!best || base64.length > best.length) best = { base64, mime, length: base64.length }
+  }
+
+  return best ? `data:${best.mime};base64,${best.base64}` : null
+}
+
 async function parseSlide(
   zip: JSZip,
   slidePath: string,
@@ -510,7 +571,13 @@ async function parseSlide(
   // Sunumda gizlenmiş slaytlar (<p:sld show="0">) nota dahil edilmez.
   const hidden = attr(document.documentElement, 'show') === '0'
   const relationships = await getSlideRelationships(zip, slidePath)
-  const collector: SlideCollector = { title: '', items: [], tables: [], hasVisual: false }
+  const collector: SlideCollector = {
+    title: '',
+    items: [],
+    tables: [],
+    hasVisual: false,
+    imageTargets: [],
+  }
 
   const shapeTree = firstByLocalName(document, 'spTree')
   if (shapeTree) {
@@ -532,6 +599,18 @@ async function parseSlide(
   const notesFile = notesPath ? zip.file(notesPath) : null
   const notes = notesFile ? parseNotes(await notesFile.async('string')) : []
 
+  const hasTextContent =
+    Boolean(collector.title) ||
+    collector.items.length > 0 ||
+    collector.tables.length > 0 ||
+    notes.length > 0
+
+  let images: string[] | undefined
+  if (!hasTextContent && collector.hasVisual && collector.imageTargets.length) {
+    const image = await loadLargestSlideImage(zip, slidePath, relationships, collector.imageTargets)
+    if (image) images = [image]
+  }
+
   return {
     slide: {
       number,
@@ -539,6 +618,7 @@ async function parseSlide(
       items: collector.items,
       notes,
       tables: collector.tables.length ? collector.tables : undefined,
+      images,
     },
     hidden,
     hasVisual: collector.hasVisual,
@@ -555,6 +635,7 @@ export async function parsePptxArchive(
   let skipped = 0
   let hiddenCount = 0
   let imageOnly = 0
+  let imageAdded = 0
 
   for (let index = 0; index < slidePaths.length; index += 1) {
     const { slide, hidden, hasVisual } = await parseSlide(zip, slidePaths[index], index + 1)
@@ -564,11 +645,12 @@ export async function parsePptxArchive(
       continue
     }
 
-    const hasContent =
+    const hasTextContent =
       Boolean(slide.title) ||
       slide.items.length > 0 ||
       Boolean(slide.tables?.length) ||
       slide.notes.length > 0
+    const hasContent = hasTextContent || Boolean(slide.images?.length)
 
     if (!hasContent) {
       if (hasVisual) imageOnly += 1
@@ -577,6 +659,7 @@ export async function parsePptxArchive(
     }
 
     if (!slide.title) slide.title = `Slayt ${slide.number}`
+    if (!hasTextContent && slide.images?.length) imageAdded += 1
     slides.push(slide)
   }
 
@@ -584,10 +667,11 @@ export async function parsePptxArchive(
   if (skipped) {
     warnings.push(`${skipped} slayt atlandı: seçilebilir metin bulunamadı.`)
   }
+  if (imageAdded) {
+    warnings.push(`${imageAdded} görsel slayt resim olarak eklendi.`)
+  }
   if (imageOnly) {
-    warnings.push(
-      `${imageOnly} slayt yalnızca görsel içeriyor; metin çıkarılamadı (OCR yok).`,
-    )
+    warnings.push(`${imageOnly} slayt yalnızca görsel içeriyor; resim okunamadı.`)
   }
   if (hiddenCount) {
     warnings.push(`${hiddenCount} gizli slayt atlandı.`)
@@ -982,6 +1066,24 @@ interface PdfJsTextItem {
   hasEOL?: boolean
 }
 
+const PDF_IMAGE_OPERATOR_NAMES = [
+  'paintImageXObject',
+  'paintInlineImageXObject',
+  'paintImageMaskXObject',
+  'paintImageXObjectRepeat',
+  'paintImageMaskXObjectRepeat',
+  'paintImageMaskXObjectGroup',
+  'paintInlineImageXObjectGroup',
+] as const
+
+/** Sayfada resim çizim işlemi var mı? Boş sayfaları taranmış sayfalardan ayırır. */
+function hasPdfImageOperators(fnArray: number[], ops: Record<string, number>): boolean {
+  return PDF_IMAGE_OPERATOR_NAMES.some((name) => {
+    const value = ops[name]
+    return typeof value === 'number' && fnArray.includes(value)
+  })
+}
+
 export async function readPdfFile(file: File): Promise<SlideDeck> {
   const pdfjs = await import('pdfjs-dist')
   const workerModule = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')) as {
@@ -989,13 +1091,16 @@ export async function readPdfFile(file: File): Promise<SlideDeck> {
   }
   pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default
 
-  const document = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
+  const pdfDocument = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
   const pages: PdfPageData[] = []
   const slides: Slide[] = []
+  const imageSlides: Slide[] = []
   let emptyPages = 0
+  let renderedPages = 0
+  const imageOps = pdfjs.OPS as unknown as Record<string, number>
 
-  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-    const page = await document.getPage(pageNumber)
+  for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber += 1) {
+    const page = await pdfDocument.getPage(pageNumber)
     const viewport = page.getViewport({ scale: 1 })
     const content = await page.getTextContent()
     const rawItems = content.items as PdfJsTextItem[]
@@ -1024,7 +1129,45 @@ export async function readPdfFile(file: File): Promise<SlideDeck> {
     }
 
     if (!items.some((item) => item.str.trim())) {
-      emptyPages += 1
+      // Taranmış sayfa olabilir: içinde resim varsa sayfayı resim olarak ekle.
+      let operatorList: { fnArray: number[] } | null = null
+      try {
+        operatorList = await page.getOperatorList()
+      } catch {
+        operatorList = null
+      }
+
+      if (operatorList && hasPdfImageOperators(operatorList.fnArray, imageOps)) {
+        const largestSide = Math.max(viewport.width, viewport.height)
+        const scale = Math.min(1.6, 1600 / Math.max(1, largestSide))
+        const renderViewport = page.getViewport({ scale })
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.ceil(renderViewport.width))
+        canvas.height = Math.max(1, Math.ceil(renderViewport.height))
+
+        let dataUrl = ''
+        try {
+          await page.render({ canvas, viewport: renderViewport }).promise
+          dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+        } catch {
+          dataUrl = ''
+        }
+
+        if (dataUrl.startsWith('data:image/')) {
+          imageSlides.push({
+            number: pageNumber,
+            title: `Sayfa ${pageNumber}`,
+            items: [],
+            notes: [],
+            images: [dataUrl],
+          })
+          renderedPages += 1
+        } else {
+          emptyPages += 1
+        }
+      } else {
+        emptyPages += 1
+      }
       continue
     }
 
@@ -1037,18 +1180,24 @@ export async function readPdfFile(file: File): Promise<SlideDeck> {
     if (slide.items.length || slide.title) slides.push(slide)
   }
 
+  if (imageSlides.length) {
+    slides.push(...imageSlides)
+    slides.sort((left, right) => left.number - right.number)
+  }
+
   if (!slides.length) {
     throw new Error(
-      'PDF’te seçilebilir metin bulunamadı. Taranmış bir PDF olabilir; bu sürümde OCR yok. ' +
-        'Metin içeren bir PDF ile tekrar dene.',
+      'PDF’te seçilebilir metin veya görsel bulunamadı. Taranmış bir PDF olabilir; ' +
+        'bu sürümde OCR yok. Metin içeren bir PDF ile tekrar dene.',
     )
   }
 
   const warnings: string[] = []
+  if (renderedPages) {
+    warnings.push(`${renderedPages} taranmış sayfa resim olarak eklendi.`)
+  }
   if (emptyPages) {
-    warnings.push(
-      `${emptyPages} sayfa atlandı: seçilebilir metin yok (taranmış sayfa olabilir).`,
-    )
+    warnings.push(`${emptyPages} sayfa atlandı: seçilebilir metin veya görsel yok.`)
   }
 
   return {
@@ -1094,6 +1243,10 @@ export function slidesToBlocks(
         pushTableBlock(blocks, table)
       }
 
+      for (const image of slide.images ?? []) {
+        blocks.push(newBlock('image', { src: image, caption: slide.title }))
+      }
+
       if (includeNotes && slide.notes.length) {
         blocks.push(
           newBlock('quote', {
@@ -1122,6 +1275,10 @@ export function slidesToBlocks(
 
       for (const table of slide.tables ?? []) {
         pushTableBlock(blocks, table)
+      }
+
+      for (const image of slide.images ?? []) {
+        blocks.push(newBlock('image', { src: image, caption: slide.title }))
       }
 
       if (includeNotes && slide.notes.length) {

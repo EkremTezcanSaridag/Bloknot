@@ -84,13 +84,13 @@ Kendi anahtarların varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu 
 
 **Slayttan not** penceresinde bir `.pptx` veya `.pdf` dosyası seçtiğinde metin tamamen tarayıcında çıkarılır; dosya hiçbir sunucuya yüklenmez.
 
-- **PPTX:** başlık ve alt başlık yer tutucuları, madde listeleri, grup içindeki şekiller, tablolar, grafik başlığı/seri/kategori/değerleri, SmartArt metinleri ve konuşmacı notları okunur; gizli slaytlar atlanır, yalnızca görsel içeren slaytlar ayrıca bildirilir.
-- **PDF:** font boyutundan ve kalın yazıdan başlık seçilir, satır kaydırmaları birleştirilir, iki sütunlu sayfalar sütun sırasına göre dizilir, sayfa numaraları ve sayfalarda tekrar eden üst/alt bilgi satırları ayıklanır.
+- **PPTX:** başlık ve alt başlık yer tutucuları, madde listeleri, grup içindeki şekiller, tablolar, grafik başlığı/seri/kategori/değerleri, SmartArt metinleri ve konuşmacı notları okunur; gizli slaytlar atlanır. Metin çıkmayan görsel slaytlar en büyük görselleriyle resim olarak eklenir.
+- **PDF:** font boyutundan ve kalın yazıdan başlık seçilir, satır kaydırmaları birleştirilir, iki sütunlu sayfalar sütun sırasına göre dizilir, sayfa numaraları ve sayfalarda tekrar eden üst/alt bilgi satırları ayıklanır. Taranmış sayfalar resim olarak eklenir.
 - **AI adımı isteğe bağlıdır.** “Düzenle ve netleştir”, “Slayt slayt özetle” veya “Ders notuna çevir” modlarından birini seçip AI ile düzenleyebilirsin. Yalnızca çıkarılan slayt metni AI sağlayıcısına gönderilir; dosya gönderilmez.
 - **Slayt seçimi.** Önizlemede slaytları tek tek işaretleyerek nota ve AI’ya dahil edilecekleri seç; kapak, teşekkür veya ek slaytları kolayca çıkar.
 - **Uzun sunumlar.** AI isteği, metin kesilmesin diye otomatik olarak parçalara bölünür; her parça ayrı işlenip sırayla birleştirilir.
 - **AI sonucu beğenmezsen** “Ham metne dön” ile ilk çıkarıma dönüp AI olmadan not oluşturabilirsin.
-- **Taranmış PDF veya yalnızca görsel içeren slaytlar** için bu sürümde OCR yoktur. Metin bulunamayan sayfalar atlanır ve pencerede uyarı gösterilir.
+- **Taranmış PDF veya yalnızca görsel içeren slaytlar** bu sürümde OCR ile yazıya çevrilmez; bunun yerine sayfa/slayt resmi nota eklenir. Ne metin ne görsel bulunabilen sayfalar atlanır ve pencerede uyarı gösterilir.
 
 ## GitHub Pages'e yayınlama
 

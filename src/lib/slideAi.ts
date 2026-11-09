@@ -153,7 +153,7 @@ export function mergeAiChunk(chunk: SlideDeck, improved: SlideDeck): AiChunkMerg
       keptRaw += 1
       return raw
     }
-    return { ...ai, number: raw.number }
+    return { ...ai, number: raw.number, images: raw.images }
   })
 
   return { slides, keptRaw }

@@ -337,7 +337,7 @@ export function SlideImportDialog() {
         </div>
 
         <p className="text-[0.65rem] font-semibold leading-relaxed text-[var(--text-faint)]">
-          Taranmış PDF veya yalnızca görsel içeren slaytlarda seçilebilir metin bulunamaz; bu
+          Metin çıkmayan görsel slaytlar ve taranmış PDF sayfaları resim olarak eklenir; bu
           sürümde OCR yok. Metin varsa AI ile düzenleyebilirsin.
         </p>
 
@@ -423,6 +423,7 @@ export function SlideImportDialog() {
                         <span className="shrink-0 text-[0.62rem] font-semibold text-[var(--text-faint)]">
                           {slide.items.length} öğe
                           {slide.tables?.length ? ` · ${slide.tables.length} tablo` : ''}
+                          {slide.images?.length ? ' · görsel' : ''}
                           {slide.notes.length ? ' · not' : ''}
                         </span>
                         {expanded ? (
@@ -454,6 +455,14 @@ export function SlideImportDialog() {
                             Tablo: {table.length}×{table[0]?.length ?? 0}
                             {table[0]?.length ? ` — ${table[0].join(' | ')}` : ''}
                           </p>
+                        ))}
+                        {slide.images?.map((src, imageIndex) => (
+                          <img
+                            key={`${slide.number}-image-${imageIndex}`}
+                            src={src}
+                            alt={`Slayt ${slide.number} görseli`}
+                            className="mt-1.5 max-h-40 w-auto max-w-full rounded-lg border border-[var(--border)] object-contain"
+                          />
                         ))}
                         {slide.notes.map((note, noteIndex) => (
                           <p key={`${slide.number}-note-${noteIndex}`} className="italic text-[var(--text-faint)]">

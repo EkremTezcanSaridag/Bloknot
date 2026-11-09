@@ -335,7 +335,7 @@ describe('pptx gelişmiş çıkarım', () => {
     expect(deck.warnings?.some((warning) => warning.includes('1 gizli slayt atlandı'))).toBe(true)
   })
 
-  it('yalnızca görsel içeren slaytları ayrı uyarıyla bildirir', async () => {
+  it('görseli okunamayan slaytları uyarıyla bildirir', async () => {
     const zip = new JSZip()
     zip.file('ppt/slides/slide1.xml', wrapSlide(textShape('title', 'Metinli slayt')))
     zip.file(
@@ -352,6 +352,46 @@ describe('pptx gelişmiş çıkarım', () => {
     expect(
       deck.warnings?.some((warning) => warning.includes('1 slayt yalnızca görsel içeriyor')),
     ).toBe(true)
+  })
+
+  it('metin çıkmayan görsel slaytı resim olarak ekler', async () => {
+    const png = Buffer.concat([
+      Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        'base64',
+      ),
+      Buffer.alloc(9000),
+    ])
+
+    const zip = new JSZip()
+    zip.file('ppt/slides/slide1.xml', wrapSlide(textShape('title', 'Metinli slayt')))
+    zip.file(
+      'ppt/slides/slide2.xml',
+      wrapSlide(
+        '<p:pic><p:nvPicPr><p:cNvPr id="4" name="Resim" descr=""/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>' +
+          '<p:blipFill><a:blip r:embed="rId9"/></p:blipFill><p:spPr/></p:pic>',
+      ),
+    )
+    zip.file(
+      'ppt/slides/_rels/slide2.xml.rels',
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
+</Relationships>`,
+    )
+    zip.file('ppt/media/image1.png', png)
+
+    const deck = await parsePptxArchive(zip, 'Sunum')
+
+    expect(deck.slides).toHaveLength(2)
+    expect(deck.slides[1].title).toBe('Slayt 2')
+    expect(deck.slides[1].images?.[0]).toMatch(/^data:image\/png;base64,/)
+    expect(
+      deck.warnings?.some((warning) => warning.includes('1 görsel slayt resim olarak eklendi')),
+    ).toBe(true)
+
+    const blocks = slidesToBlocks(deck, 'sections')
+    expect(blocks.some((block) => block.type === 'image' && block.src)).toBe(true)
   })
 })
 
