@@ -46,11 +46,16 @@ export function SlideImportDialog() {
   const [aiApplied, setAiApplied] = useState(false)
   const [aiError, setAiError] = useState('')
   const [expandedSlide, setExpandedSlide] = useState<number | null>(null)
+  const [excluded, setExcluded] = useState<Set<number>>(() => new Set())
   const inputRef = useRef<HTMLInputElement>(null)
   const aiAbortRef = useRef<AbortController | null>(null)
 
   const provider = AI_PROVIDERS[settings.aiProvider] ?? AI_PROVIDERS.groq
   const selectedAiMode = SLIDE_AI_MODES.find((item) => item.id === aiMode) ?? SLIDE_AI_MODES[0]
+
+  const selectedSlides = deck ? deck.slides.filter((slide) => !excluded.has(slide.number)) : []
+  const selectedCount = selectedSlides.length
+  const allSelected = Boolean(deck) && excluded.size === 0
 
   useEffect(() => {
     if (dialog !== 'slides') {
@@ -69,6 +74,7 @@ export function SlideImportDialog() {
       setAiApplied(false)
       setAiError('')
       setExpandedSlide(null)
+      setExcluded(new Set())
     }
   }, [dialog])
 
@@ -93,6 +99,7 @@ export function SlideImportDialog() {
     setAiError('')
     setAiApplied(false)
     setExpandedSlide(null)
+    setExcluded(new Set())
     setLoading(true)
 
     try {
@@ -121,8 +128,8 @@ export function SlideImportDialog() {
 
     setAiError('')
 
-    if (!deck.slides.length) {
-      setAiError('AI’ya gönderilecek slayt metni yok.')
+    if (!selectedSlides.length) {
+      setAiError('AI’ya gönderilecek slayt seçili değil. En az bir slayt işaretle.')
       return
     }
 
@@ -151,7 +158,7 @@ export function SlideImportDialog() {
     aiAbortRef.current = controller
 
     try {
-      const chunks = chunkDeckForAi(deck)
+      const chunks = chunkDeckForAi({ ...deck, slides: selectedSlides })
       const total = chunks.length
       if (total > 1) setAiProgress({ done: 0, total })
 
@@ -201,15 +208,16 @@ export function SlideImportDialog() {
       })
       setAiApplied(true)
       setExpandedSlide(null)
+      setExcluded(new Set())
 
       if (failedNumbers.length) {
         pushToast(
           `${failedNumbers.length} slayt AI ile düzenlenemedi; ham metin korundu.`,
           'default',
         )
-      } else if (improvedSlides.length < deck.slides.length) {
+      } else if (improvedSlides.length < selectedSlides.length) {
         pushToast(
-          `AI ${improvedSlides.length}/${deck.slides.length} slayt döndürdü. Gerekirse ham metne dönebilirsin.`,
+          `AI ${improvedSlides.length}/${selectedSlides.length} slayt döndürdü. Gerekirse ham metne dönebilirsin.`,
           'default',
         )
       } else if (total > 1) {
@@ -235,16 +243,34 @@ export function SlideImportDialog() {
     setExpandedSlide(null)
   }
 
+  const toggleSlide = (number: number) => {
+    setExcluded((current) => {
+      const next = new Set(current)
+      if (next.has(number)) next.delete(number)
+      else next.add(number)
+      return next
+    })
+  }
+
+  const toggleAllSlides = () => {
+    if (!deck) return
+    setExcluded(allSelected ? new Set(deck.slides.map((slide) => slide.number)) : new Set())
+  }
+
   const handleCreate = async () => {
     if (!deck) return
+    if (!selectedSlides.length) {
+      setError('Nota eklenecek slayt seçili değil. En az bir slayt işaretle.')
+      return
+    }
     setCreating(true)
     setError('')
 
     try {
-      const blocks = slidesToBlocks(deck, mode, includeNotes)
+      const blocks = slidesToBlocks({ ...deck, slides: selectedSlides }, mode, includeNotes)
       createNote({ title: deck.title, emoji: '📊', blocks })
       pushToast(
-        `${deck.slides.length} slayt ${aiApplied ? 'AI düzenlemesiyle ' : ''}not olarak açıldı.`,
+        `${selectedSlides.length} slayt ${aiApplied ? 'AI düzenlemesiyle ' : ''}not olarak açıldı.`,
         'success',
       )
       closeDialog()
@@ -333,10 +359,19 @@ export function SlideImportDialog() {
           <div className="space-y-3">
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
               <p className="text-sm font-extrabold">{deck.title}</p>
-              <p className="mt-0.5 text-xs font-semibold text-[var(--text-faint)]">
-                {deck.slides.length} slayt bulundu.
-                {aiApplied ? ' AI düzenlemesi uygulandı.' : ''}
-              </p>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                <p className="text-xs font-semibold text-[var(--text-faint)]">
+                  {deck.slides.length} slayt bulundu · {selectedCount} seçili.
+                  {aiApplied ? ' AI düzenlemesi uygulandı.' : ''}
+                </p>
+                <button
+                  type="button"
+                  onClick={toggleAllSlides}
+                  className="ml-auto text-[0.65rem] font-extrabold text-[var(--accent-strong)] transition hover:underline"
+                >
+                  {allSelected ? 'Tümünü kaldır' : 'Tümünü seç'}
+                </button>
+              </div>
             </div>
 
             {deck.warnings?.length ? (
@@ -358,29 +393,40 @@ export function SlideImportDialog() {
                     key={`${slide.number}-${slide.title}`}
                     className="border-b border-[var(--border)] last:border-b-0"
                   >
-                    <button
-                      type="button"
-                      onClick={() => setExpandedSlide(expanded ? null : slide.number)}
-                      aria-expanded={expanded}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-[var(--surface)]"
-                    >
-                      <span className="grid size-5 shrink-0 place-items-center rounded-md bg-[var(--surface-2)] text-[0.62rem] font-extrabold text-[var(--text-faint)]">
-                        {slide.number}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-[var(--text)]">
-                        {slide.title}
-                      </span>
-                      <span className="shrink-0 text-[0.62rem] font-semibold text-[var(--text-faint)]">
-                        {slide.items.length} öğe
-                        {slide.tables?.length ? ` · ${slide.tables.length} tablo` : ''}
-                        {slide.notes.length ? ' · not' : ''}
-                      </span>
-                      {expanded ? (
-                        <ChevronDown className="size-3.5 shrink-0 text-[var(--text-faint)]" />
-                      ) : (
-                        <ChevronRight className="size-3.5 shrink-0 text-[var(--text-faint)]" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2 px-3 py-2 transition hover:bg-[var(--surface)]">
+                      <input
+                        type="checkbox"
+                        checked={!excluded.has(slide.number)}
+                        onChange={() => toggleSlide(slide.number)}
+                        aria-label={`${slide.title} slaytını nota dahil et`}
+                        className="size-4 shrink-0 accent-[var(--accent)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSlide(expanded ? null : slide.number)}
+                        aria-expanded={expanded}
+                        className={`flex min-w-0 flex-1 items-center gap-2 text-left ${
+                          excluded.has(slide.number) ? 'opacity-50' : ''
+                        }`}
+                      >
+                        <span className="grid size-5 shrink-0 place-items-center rounded-md bg-[var(--surface-2)] text-[0.62rem] font-extrabold text-[var(--text-faint)]">
+                          {slide.number}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-[var(--text)]">
+                          {slide.title}
+                        </span>
+                        <span className="shrink-0 text-[0.62rem] font-semibold text-[var(--text-faint)]">
+                          {slide.items.length} öğe
+                          {slide.tables?.length ? ` · ${slide.tables.length} tablo` : ''}
+                          {slide.notes.length ? ' · not' : ''}
+                        </span>
+                        {expanded ? (
+                          <ChevronDown className="size-3.5 shrink-0 text-[var(--text-faint)]" />
+                        ) : (
+                          <ChevronRight className="size-3.5 shrink-0 text-[var(--text-faint)]" />
+                        )}
+                      </button>
+                    </div>
 
                     {expanded && (
                       <div className="space-y-1 px-3 pb-2.5 pl-10 text-[0.7rem] font-semibold leading-relaxed text-[var(--text-soft)]">
@@ -470,7 +516,7 @@ export function SlideImportDialog() {
                 <button
                   type="button"
                   onClick={() => void runAi()}
-                  disabled={aiLoading || loading}
+                  disabled={aiLoading || loading || selectedCount === 0}
                   className="inline-flex items-center gap-2 rounded-xl border border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] px-3 py-2 text-xs font-extrabold text-[var(--accent-strong)] transition hover:bg-[color-mix(in_oklab,var(--accent)_20%,transparent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {aiLoading ? (
@@ -559,7 +605,7 @@ export function SlideImportDialog() {
           <button
             type="button"
             onClick={() => void handleCreate()}
-            disabled={!deck || loading || creating || aiLoading}
+            disabled={!deck || loading || creating || aiLoading || selectedCount === 0}
             className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-3.5 py-2 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {creating ? (
