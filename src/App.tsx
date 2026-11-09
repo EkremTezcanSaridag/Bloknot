@@ -13,6 +13,7 @@ import { SlideImportDialog } from './components/SlideImportDialog'
 import { Toasts } from './components/Toasts'
 import { Confetti } from './components/Confetti'
 import { FormattingToolbar } from './components/editor/FormattingToolbar'
+import { NoteLinkPreview } from './components/NoteLinkPreview'
 import { SharedNote } from './components/SharedNote'
 import { LogoMark } from './components/Logo'
 
@@ -261,6 +262,7 @@ export default function App() {
       <Toasts />
       <Confetti />
       <FormattingToolbar />
+      <NoteLinkPreview />
     </div>
   )
 }
