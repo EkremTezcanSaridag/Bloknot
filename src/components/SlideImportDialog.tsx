@@ -103,6 +103,14 @@ export function SlideImportDialog() {
   }, [dialog])
 
   const handleFile = async (next: File) => {
+    // Yeni dosya seçilirse sürmekte olan AI isteğini iptal et; eski sonuç yeni desteyi ezmesin.
+    if (aiLoading) {
+      aiAbortRef.current?.abort()
+      aiAbortRef.current = null
+      setAiLoading(false)
+      setAiProgress(null)
+    }
+
     const lowerName = next.name.toLowerCase()
     const isPptx = lowerName.endsWith('.pptx')
     const isPdf = lowerName.endsWith('.pdf')
@@ -409,7 +417,8 @@ export function SlideImportDialog() {
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-3.5 py-2 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)]"
+              disabled={aiLoading}
+              className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-3.5 py-2 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FileText className="size-4" />
               Dosya seç
@@ -455,7 +464,22 @@ export function SlideImportDialog() {
         {deck && !loading && (
           <div className="space-y-3">
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-              <p className="text-sm font-extrabold">{deck.title}</p>
+              <label className="block">
+                <span className="mb-0.5 block text-[0.62rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                  Not başlığı
+                </span>
+                <input
+                  value={deck.title}
+                  onChange={(event) => {
+                    const title = event.target.value
+                    setDeck((current) => (current ? { ...current, title } : current))
+                    setRawDeck((current) => (current ? { ...current, title } : current))
+                  }}
+                  aria-label="Not başlığı"
+                  placeholder="Not başlığı"
+                  className="w-full rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-sm font-extrabold text-[var(--text)] outline-none transition hover:border-[var(--border)] focus:border-[var(--accent)]"
+                />
+              </label>
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
                 <p className="text-xs font-semibold text-[var(--text-faint)]">
                   {deck.slides.length} slayt bulundu · {selectedCount} seçili.

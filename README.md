@@ -89,7 +89,7 @@ Kendi anahtarların varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu 
 - **DOCX:** Heading 1/2 stilleri ve ana hat düzeyleri bölüm başlığı olarak kullanılır; maddeler, numaralı listeler, tablolar ve belgeye gömülü resimler okunur.
 - **AI adımı isteğe bağlıdır.** “Düzenle ve netleştir”, “Slayt slayt özetle” veya “Ders notuna çevir” modlarından birini seçip AI ile düzenleyebilirsin. Yalnızca çıkarılan slayt metni AI sağlayıcısına gönderilir; dosya gönderilmez.
 - **Slayt seçimi.** Önizlemede slaytları tek tek işaretleyerek nota ve AI’ya dahil edilecekleri seç; kapak, teşekkür veya ek slaytları kolayca çıkar.
-- **Elle düzeltme.** Önizlemede bir slaytı açıp “Metni düzenle” ile başlığı, maddeleri ve konuşmacı notlarını AI’ya gerek kalmadan düzeltebilirsin.
+- **Elle düzeltme.** Önizlemede not başlığını değiştirebilir; bir slaytı açıp “Metni düzenle” ile başlığı, maddeleri ve konuşmacı notlarını AI’ya gerek kalmadan düzeltebilirsin.
 - **Mevcut nota ekle.** “Hedef” listesinden bir not seçersen çıkarılan slaytlar yeni not oluşturmak yerine o notun sonuna eklenir; başlık, maddeler, tablolar ve görseller mevcut içeriğin altına eklenir.
 - **Uzun sunumlar.** AI isteği, metin kesilmesin diye otomatik olarak parçalara bölünür; her parça ayrı işlenip sırayla birleştirilir.
 - **AI sonucu beğenmezsen** “Ham metne dön” ile ilk çıkarıma dönüp AI olmadan not oluşturabilirsin.
