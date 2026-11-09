@@ -23,7 +23,7 @@ Bloknot, tarayıcında çalışan; hesap açmadan kullanabileceğin, blok tabanl
 - **Yedekleme.** JSON yedeği indir/geri yükle, Markdown içe/dışa aktar, son 5 anlık yedeği geri döndür.
 - **Tema ve vurgu rengi.** Açık/koyu/sistem teması ve beş farklı vurgu rengi.
 - **AI asistan.** Notunu düzelt, özetle, şekillendir veya Mermaid şemasına çevir. Groq, OpenRouter, xAI ve OpenAI uyumlu uç noktalar desteklenir.
-- **Slayttan not.** PPTX veya PDF dosyasından slayt başlıkları, maddeler ve konuşmacı notlarını tarayıcıda çıkar; slayt başına bölüm veya tek not olarak aç.
+- **Slayttan not + AI.** PPTX/PDF'ten başlık, madde, tablo, grafik/SmartArt metni ve konuşmacı notlarını tarayıcıda çıkar; istersen AI ile düzenle, özetle veya ders notuna çevir.
 - **Küçük mutluluklar.** Yapılacak işi tamamlayınca konfeti, hafif arayüz sesleri, ilham soruları.
 - **Çevrimdışı PWA.** Ana ekrana ekle, internet olmadan da yaz.
 - **Mobil uyumlu.** Telefonda da rahat kullanılır.
@@ -79,6 +79,16 @@ Siteyi kullanan herkesin anahtar girmesini istemiyorsan Groq anahtarını Cloudf
 Alternatif olarak **OpenRouter**, **xAI** veya OpenAI uyumlu özel bir uç nokta da seçebilirsin. Groq metin üretir; şemalar Mermaid kodu olarak üretilip görsele çevrilir.
 
 Kendi anahtarların varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu cihazda hatırla" ile localStorage'a kaydedebilirsin. Paylaşımlı modda anahtar tarayıcıya hiç inmez; Cloudflare Worker'da kalır.
+
+## Slayttan not ve AI
+
+**Slayttan not** penceresinde bir `.pptx` veya `.pdf` dosyası seçtiğinde metin tamamen tarayıcında çıkarılır; dosya hiçbir sunucuya yüklenmez.
+
+- **PPTX:** başlık ve alt başlık yer tutucuları, madde listeleri, grup içindeki şekiller, tablolar, grafik başlığı/seri/kategori/değerleri, SmartArt metinleri ve konuşmacı notları okunur.
+- **PDF:** font boyutundan başlık seçilir, satır kaydırmaları birleştirilir, iki sütunlu sayfalar sütun sırasına göre dizilir, sayfa numaraları ayıklanır.
+- **AI adımı isteğe bağlıdır.** “Düzenle ve netleştir”, “Slayt slayt özetle” veya “Ders notuna çevir” modlarından birini seçip AI ile düzenleyebilirsin. Yalnızca çıkarılan slayt metni AI sağlayıcısına gönderilir; dosya gönderilmez.
+- **AI sonucu beğenmezsen** “Ham metne dön” ile ilk çıkarıma dönüp AI olmadan not oluşturabilirsin.
+- **Taranmış PDF veya yalnızca görsel içeren slaytlar** için bu sürümde OCR yoktur. Metin bulunamayan sayfalar atlanır ve pencerede uyarı gösterilir.
 
 ## GitHub Pages'e yayınlama
 

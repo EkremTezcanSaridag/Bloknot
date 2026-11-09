@@ -1,33 +1,67 @@
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Loader2, Presentation, Upload } from 'lucide-react'
+import {
+  AlertTriangle,
+  FileText,
+  Loader2,
+  Presentation,
+  RotateCcw,
+  Sparkles,
+  Upload,
+} from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Modal } from './Modal'
 import { readPdfFile, readPptxFile, slidesToBlocks, type SlideDeck } from '../lib/slides'
+import { AI_PROVIDERS, aiConfigFromSettings, chatComplete } from '../lib/ai'
+import { getAiKey } from '../lib/aiKey'
+import {
+  SLIDE_AI_MODES,
+  buildSlideAiPrompt,
+  parseSlideAiResponse,
+  type SlideAiMode,
+} from '../lib/slideAi'
 
 export function SlideImportDialog() {
   const dialog = useStore((state) => state.dialog)
   const closeDialog = useStore((state) => state.closeDialog)
   const createNote = useStore((state) => state.createNote)
   const pushToast = useStore((state) => state.pushToast)
+  const settings = useStore((state) => state.settings)
 
   const [file, setFile] = useState<File | null>(null)
   const [deck, setDeck] = useState<SlideDeck | null>(null)
+  const [rawDeck, setRawDeck] = useState<SlideDeck | null>(null)
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [includeNotes, setIncludeNotes] = useState(true)
   const [mode, setMode] = useState<'sections' | 'single'>('sections')
+  const [aiMode, setAiMode] = useState<SlideAiMode>('clean')
+  const [aiExtra, setAiExtra] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiApplied, setAiApplied] = useState(false)
+  const [aiError, setAiError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const aiAbortRef = useRef<AbortController | null>(null)
+
+  const provider = AI_PROVIDERS[settings.aiProvider] ?? AI_PROVIDERS.groq
+  const selectedAiMode = SLIDE_AI_MODES.find((item) => item.id === aiMode) ?? SLIDE_AI_MODES[0]
 
   useEffect(() => {
     if (dialog !== 'slides') {
+      aiAbortRef.current?.abort()
+      aiAbortRef.current = null
       setFile(null)
       setDeck(null)
+      setRawDeck(null)
       setLoading(false)
       setCreating(false)
       setError('')
       setDragging(false)
+      setAiExtra('')
+      setAiLoading(false)
+      setAiApplied(false)
+      setAiError('')
     }
   }, [dialog])
 
@@ -37,21 +71,29 @@ export function SlideImportDialog() {
     const isPdf = lowerName.endsWith('.pdf')
 
     if (!isPptx && !isPdf) {
-      setError('Lütfen bir .pptx veya .pdf dosyası seç.')
+      setError(
+        lowerName.endsWith('.ppt')
+          ? 'Eski .ppt biçimi desteklenmiyor. Sunumu .pptx olarak kaydedip tekrar dene.'
+          : 'Lütfen bir .pptx veya .pdf dosyası seç.',
+      )
       return
     }
 
     setFile(next)
     setDeck(null)
+    setRawDeck(null)
     setError('')
+    setAiError('')
+    setAiApplied(false)
     setLoading(true)
 
     try {
       const parsed = isPdf ? await readPdfFile(next) : await readPptxFile(next)
       if (!parsed.slides.length) {
-        throw new Error('Bu dosyadan metin çıkarlamadım.')
+        throw new Error('Bu dosyadan metin çıkaramadım.')
       }
       setDeck(parsed)
+      setRawDeck(parsed)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Dosya okunamadı.')
     } finally {
@@ -66,6 +108,84 @@ export function SlideImportDialog() {
     if (next) void handleFile(next)
   }
 
+  const runAi = async () => {
+    if (!deck) return
+
+    setAiError('')
+
+    if (!deck.slides.length) {
+      setAiError('AI’ya gönderilecek slayt metni yok.')
+      return
+    }
+
+    if (!settings.aiBaseUrl.trim()) {
+      setAiError('AI sunucu adresi tanımlı değil. Ayarlar > Yapay zekâ bölümünü kontrol et.')
+      return
+    }
+
+    if (!settings.aiModel.trim()) {
+      setAiError('AI model adı boş. Ayarlar > Yapay zekâ bölümünü kontrol et.')
+      return
+    }
+
+    const apiKey = getAiKey()
+    if (provider.requiresKey && !apiKey.trim()) {
+      setAiError(
+        'Bu AI sağlayıcısı için anahtar gerekli. Ayarlar > Yapay zekâ bölümünden anahtar gir ' +
+          'veya paylaşımlı Groq sağlayıcısını seç.',
+      )
+      return
+    }
+
+    setAiLoading(true)
+    const controller = new AbortController()
+    aiAbortRef.current = controller
+
+    try {
+      const { system, user } = buildSlideAiPrompt(deck, aiMode, aiExtra)
+      const maxTokens = Math.min(8000, Math.max(2000, 1000 + deck.slides.length * 240))
+      const text = await chatComplete(
+        aiConfigFromSettings(settings, apiKey),
+        [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        {
+          temperature: aiMode === 'clean' ? 0.2 : 0.35,
+          maxTokens,
+          json: true,
+          timeoutMs: 90_000,
+          signal: controller.signal,
+        },
+      )
+
+      const improved = parseSlideAiResponse(text, deck.title)
+      setDeck({ ...improved, warnings: improved.warnings ?? deck.warnings })
+      setAiApplied(true)
+      if (improved.slides.length < deck.slides.length) {
+        pushToast(
+          `AI ${improved.slides.length}/${deck.slides.length} slayt döndürdü. Gerekirse ham metne dönebilirsin.`,
+          'default',
+        )
+      } else {
+        pushToast('AI slayt metnini düzenledi.', 'success')
+      }
+    } catch (caught) {
+      if (controller.signal.aborted) return
+      setAiError(caught instanceof Error ? caught.message : 'AI düzenlemesi başarısız oldu.')
+    } finally {
+      if (aiAbortRef.current === controller) aiAbortRef.current = null
+      setAiLoading(false)
+    }
+  }
+
+  const resetAi = () => {
+    if (!rawDeck) return
+    setDeck(rawDeck)
+    setAiApplied(false)
+    setAiError('')
+  }
+
   const handleCreate = async () => {
     if (!deck) return
     setCreating(true)
@@ -74,7 +194,10 @@ export function SlideImportDialog() {
     try {
       const blocks = slidesToBlocks(deck, mode, includeNotes)
       createNote({ title: deck.title, emoji: '📊', blocks })
-      pushToast(`${deck.slides.length} slayt not olarak açıldı.`, 'success')
+      pushToast(
+        `${deck.slides.length} slayt ${aiApplied ? 'AI düzenlemesiyle ' : ''}not olarak açıldı.`,
+        'success',
+      )
       closeDialog()
     } catch {
       setError('Not oluşturulamadı. Tekrar dene.')
@@ -133,6 +256,11 @@ export function SlideImportDialog() {
           />
         </div>
 
+        <p className="text-[0.65rem] font-semibold leading-relaxed text-[var(--text-faint)]">
+          Taranmış PDF veya yalnızca görsel içeren slaytlarda seçilebilir metin bulunamaz; bu
+          sürümde OCR yok. Metin varsa AI ile düzenleyebilirsin.
+        </p>
+
         {file && (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text-soft)]">
             Seçilen dosya: <span className="font-extrabold text-[var(--text)]">{file.name}</span>
@@ -158,13 +286,25 @@ export function SlideImportDialog() {
               <p className="text-sm font-extrabold">{deck.title}</p>
               <p className="mt-0.5 text-xs font-semibold text-[var(--text-faint)]">
                 {deck.slides.length} slayt bulundu.
+                {aiApplied ? ' AI düzenlemesi uygulandı.' : ''}
               </p>
             </div>
+
+            {deck.warnings?.length ? (
+              <div className="flex gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <div className="space-y-1">
+                  {deck.warnings.map((warning) => (
+                    <p key={warning}>{warning}</p>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="max-h-56 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)]">
               {deck.slides.map((slide) => (
                 <div
-                  key={slide.number}
+                  key={`${slide.number}-${slide.title}`}
                   className="border-b border-[var(--border)] px-3 py-2 last:border-b-0"
                 >
                   <div className="flex items-center gap-2">
@@ -176,11 +316,112 @@ export function SlideImportDialog() {
                     </span>
                     <span className="shrink-0 text-[0.62rem] font-semibold text-[var(--text-faint)]">
                       {slide.items.length} öğe
+                      {slide.tables?.length ? ` · ${slide.tables.length} tablo` : ''}
                       {slide.notes.length ? ' · not' : ''}
                     </span>
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+              <div className="flex items-start gap-2.5">
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] text-[var(--accent-strong)]">
+                  <Sparkles className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-extrabold">AI ile iyileştir</p>
+                  <p className="mt-0.5 text-[0.7rem] font-semibold leading-relaxed text-[var(--text-faint)]">
+                    Dosya sunucuya gönderilmez; yalnızca çıkarılan slayt metni AI’ya gönderilir.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-[0.62rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                    AI modu
+                  </span>
+                  <select
+                    value={aiMode}
+                    onChange={(event) => setAiMode(event.target.value as SlideAiMode)}
+                    disabled={aiLoading}
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs font-bold text-[var(--text)] outline-none focus:border-[var(--accent)] disabled:opacity-60"
+                  >
+                    {SLIDE_AI_MODES.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-[0.62rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+                    Ek istek (isteğe bağlı)
+                  </span>
+                  <input
+                    value={aiExtra}
+                    onChange={(event) => setAiExtra(event.target.value)}
+                    disabled={aiLoading}
+                    placeholder="Örn. sınav odaklı özetle"
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs font-bold text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent)] disabled:opacity-60"
+                  />
+                </label>
+              </div>
+
+              <p className="mt-1.5 text-[0.65rem] font-semibold leading-relaxed text-[var(--text-faint)]">
+                {selectedAiMode.description}
+              </p>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void runAi()}
+                  disabled={aiLoading || loading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] px-3 py-2 text-xs font-extrabold text-[var(--accent-strong)] transition hover:bg-[color-mix(in_oklab,var(--accent)_20%,transparent)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {aiLoading ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-4" />
+                  )}
+                  {aiLoading
+                    ? 'AI düzenliyor…'
+                    : aiApplied
+                      ? 'AI ile yeniden düzenle'
+                      : 'AI ile düzenle'}
+                </button>
+
+                {aiApplied && (
+                  <button
+                    type="button"
+                    onClick={resetAi}
+                    disabled={aiLoading}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-extrabold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)] disabled:opacity-60"
+                  >
+                    <RotateCcw className="size-3.5" />
+                    Ham metne dön
+                  </button>
+                )}
+
+                <span className="ml-auto max-w-full truncate text-[0.62rem] font-semibold text-[var(--text-faint)]">
+                  {provider.label} · {settings.aiModel || 'model seçilmedi'}
+                </span>
+              </div>
+
+              {provider.requiresKey && (
+                <p className="mt-2 text-[0.65rem] font-semibold leading-relaxed text-[var(--text-faint)]">
+                  Bu sağlayıcı için AI anahtarı gerekli. Ayarlar &gt; Yapay zekâ bölümünden
+                  anahtar girebilir veya paylaşımlı Groq sağlayıcısını seçebilirsin.
+                </p>
+              )}
+
+              {aiError && (
+                <div className="mt-2 rounded-xl border border-red-300/60 bg-red-50 px-3 py-2 text-[0.7rem] font-semibold text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                  {aiError}
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
@@ -214,17 +455,25 @@ export function SlideImportDialog() {
         )}
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <button type="button" onClick={closeDialog} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-xs font-extrabold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)]">
+          <button
+            type="button"
+            onClick={closeDialog}
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-xs font-extrabold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)]"
+          >
             Kapat
           </button>
           <button
             type="button"
             onClick={() => void handleCreate()}
-            disabled={!deck || loading || creating}
+            disabled={!deck || loading || creating || aiLoading}
             className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-3.5 py-2 text-xs font-extrabold text-[var(--accent-ink)] transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {creating ? <Loader2 className="size-4 animate-spin" /> : <Presentation className="size-4" />}
-            Notu oluştur
+            {creating ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Presentation className="size-4" />
+            )}
+            {aiApplied ? 'AI sonucundan oluştur' : 'Notu oluştur'}
           </button>
         </div>
       </div>

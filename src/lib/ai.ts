@@ -96,6 +96,10 @@ export interface ChatOptions {
   temperature?: number
   maxTokens?: number
   signal?: AbortSignal
+  /** Sağlayıcıdan geçerli bir JSON nesnesi döndürmesini iste. */
+  json?: boolean
+  /** İstek zaman aşımı (ms). Varsayılan 60 sn. */
+  timeoutMs?: number
 }
 
 const SYSTEM_PROMPT =
@@ -131,7 +135,7 @@ export async function chatComplete(
   options: ChatOptions = {},
 ): Promise<string> {
   const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), 60_000)
+  const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? 60_000)
   const onAbort = () => controller.abort()
   options.signal?.addEventListener('abort', onAbort)
 
@@ -153,12 +157,27 @@ export async function chatComplete(
     if (config.provider === 'groq') body.max_completion_tokens = maxTokens
     else body.max_tokens = maxTokens
 
-    const response = await fetch(chatEndpoint(config.baseUrl), {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    })
+    if (options.json) {
+      body.response_format = { type: 'json_object' }
+    }
+
+    const endpoint = chatEndpoint(config.baseUrl)
+    const send = () =>
+      fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+
+    let response = await send()
+
+    // Bazı OpenAI uyumlu proxy'ler response_format alanını reddeder.
+    // Bu durumda isteği alan olmadan bir kez daha dene.
+    if (!response.ok && options.json && response.status === 400) {
+      delete body.response_format
+      response = await send()
+    }
 
     if (!response.ok) {
       throw new Error(await describeHttpError(response))

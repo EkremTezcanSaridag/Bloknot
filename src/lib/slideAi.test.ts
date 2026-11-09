@@ -1,0 +1,170 @@
+import { describe, expect, it } from 'vitest'
+import type { SlideDeck } from './slides'
+import {
+  buildSlideAiPrompt,
+  deckToPromptText,
+  parseSlideAiResponse,
+} from './slideAi'
+
+const deck: SlideDeck = {
+  title: 'Biyoloji Sunumu',
+  slides: [
+    {
+      number: 1,
+      title: 'Hücre',
+      items: [
+        { text: 'Hücre zarı', bullet: true, level: 0 },
+        { text: 'Çekirdek', bullet: true, level: 0 },
+      ],
+      notes: ['Zar seçici geçirgendir.'],
+      tables: [
+        [
+          ['Organel', 'Görev'],
+          ['Mitokondri', 'Enerji'],
+        ],
+      ],
+    },
+  ],
+}
+
+describe('slayt AI istemi', () => {
+  it('slayt metnini, tabloyu ve notları isteme koyar', () => {
+    const text = deckToPromptText(deck)
+
+    expect(text).toContain('Biyoloji Sunumu')
+    expect(text).toContain('[Slayt 1] Hücre')
+    expect(text).toContain('- Hücre zarı')
+    expect(text).toContain('| Organel | Görev |')
+    expect(text).toContain('Konuşmacı notu: Zar seçici geçirgendir.')
+  })
+
+  it('moda özel yönerge ve JSON şeması üretir', () => {
+    const prompt = buildSlideAiPrompt(deck, 'summarize', 'Sınav odaklı olsun')
+
+    expect(prompt.system).toContain('yalnızca geçerli JSON')
+    expect(prompt.user).toContain('en fazla 5 kısa maddeye özetle')
+    expect(prompt.user).toContain('ŞEMA:')
+    expect(prompt.user).toContain('Ek istek: Sınav odaklı olsun')
+    expect(prompt.user).toContain('SLAYT METNİ:')
+  })
+})
+
+describe('slayt AI yanıtı', () => {
+  it('kod bloğu içindeki JSON’u çözer', () => {
+    const response = `\`\`\`json
+{
+  "title": "Düzenlenmiş sunum",
+  "slides": [
+    {
+      "number": 1,
+      "title": "Hücre yapısı",
+      "items": [
+        { "text": "Hücre zarı", "bullet": true, "level": 0 },
+        { "text": "Çekirdek", "bullet": true, "level": 9 }
+      ],
+      "notes": ["Zar seçici geçirgendir."],
+      "tables": [[["Organel", "Görev"], ["Mitokondri", "Enerji"]]]
+    }
+  ]
+}
+\`\`\``
+
+    const parsed = parseSlideAiResponse(response, 'Yedek başlık')
+
+    expect(parsed.title).toBe('Düzenlenmiş sunum')
+    expect(parsed.markdown).toBe(true)
+    expect(parsed.slides[0].title).toBe('Hücre yapısı')
+    expect(parsed.slides[0].items[1].level).toBe(3)
+    expect(parsed.slides[0].tables).toEqual([
+      [
+        ['Organel', 'Görev'],
+        ['Mitokondri', 'Enerji'],
+      ],
+    ])
+  })
+
+  it('JSON bozuksa Markdown çıktısına düşer', () => {
+    const response = `# Ders Notu
+## Hücre
+- Hücre zarı
+- Çekirdek
+> Zar seçici geçirgendir.
+## Mitokondri
+- Enerji üretir`
+
+    const parsed = parseSlideAiResponse(response, 'Yedek')
+
+    expect(parsed.title).toBe('Ders Notu')
+    expect(parsed.slides).toHaveLength(2)
+    expect(parsed.slides[0].items[0]).toEqual({
+      text: 'Hücre zarı',
+      bullet: true,
+      level: 0,
+    })
+    expect(parsed.slides[0].notes).toEqual(['Zar seçici geçirgendir.'])
+  })
+
+  it('geçerli içerik yoksa anlaşılır hata verir', () => {
+    expect(() => parseSlideAiResponse('üzgünüm, yapamadım')).toThrow(
+      'AI geçerli slayt içeriği döndürmedi',
+    )
+  })
+
+  it('boş slaytları atlar ve numaraları korur', () => {
+    const parsed = parseSlideAiResponse(
+      JSON.stringify({
+        title: 'Sunum',
+        slides: [
+          { number: 2, title: '', items: [], notes: [] },
+          { number: 3, title: 'Dolu', items: ['Metin'] },
+        ],
+      }),
+    )
+
+    expect(parsed.slides).toHaveLength(1)
+    expect(parsed.slides[0].number).toBe(3)
+    expect(parsed.slides[0].items[0]).toEqual({ text: 'Metin', bullet: false, level: 0 })
+  })
+
+  it('tek tablo satır dizisi olarak dönerse de kabul eder', () => {
+    const parsed = parseSlideAiResponse(
+      JSON.stringify({
+        title: 'Sunum',
+        slides: [
+          {
+            title: 'Tablo',
+            items: ['Metin'],
+            tables: [
+              ['Ad', 'Puan'],
+              ['Ali', '90'],
+            ],
+          },
+        ],
+      }),
+    )
+
+    expect(parsed.slides[0].tables).toEqual([
+      [
+        ['Ad', 'Puan'],
+        ['Ali', '90'],
+      ],
+    ])
+  })
+
+  it('Markdown alt başlıklarını ayrı slayt yapmaz', () => {
+    const parsed = parseSlideAiResponse(`# Ders
+## Hücre
+### Organeller
+- Mitokondri
+### Zar
+- Seçici geçirgen`)
+
+    expect(parsed.slides).toHaveLength(1)
+    expect(parsed.slides[0].items.map((item) => item.text)).toEqual([
+      'Organeller',
+      'Mitokondri',
+      'Zar',
+      'Seçici geçirgen',
+    ])
+  })
+})
