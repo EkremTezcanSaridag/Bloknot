@@ -21,6 +21,11 @@ const ALLOWED_TAGS = new Set([
   'SPAN',
 ])
 
+/** Uygulama içi not kimliği (createId('n')). */
+const NOTE_ID_PATTERN = /^n_[a-z0-9]+$/i
+/** Uygulama içi not bağlantısı adresi. */
+const NOTE_LINK_HREF = /^#\/note\/n_[a-z0-9]+$/i
+
 const DROP_TAGS = new Set([
   'SCRIPT',
   'STYLE',
@@ -90,8 +95,15 @@ function cleanChildren(parent: Element): void {
     for (const attribute of Array.from(element.attributes)) {
       if (tag === 'A' && attribute.name === 'href') {
         const href = attribute.value.trim()
-        if (!/^(https?:|mailto:)/i.test(href)) {
+        if (!/^(https?:|mailto:)/i.test(href) && !NOTE_LINK_HREF.test(href)) {
           element.removeAttribute('href')
+        }
+        continue
+      }
+
+      if (tag === 'A' && attribute.name === 'data-note-id') {
+        if (!NOTE_ID_PATTERN.test(attribute.value.trim())) {
+          element.removeAttribute('data-note-id')
         }
         continue
       }
@@ -105,9 +117,21 @@ function cleanChildren(parent: Element): void {
 
     if (tag === 'SPAN') cleanSpanAttributes(element)
 
-    if (tag === 'A' && element.getAttribute('href')) {
-      element.setAttribute('rel', 'noopener noreferrer')
-      element.setAttribute('target', '_blank')
+    if (tag === 'A') {
+      let noteId = element.getAttribute('data-note-id')
+      const href = element.getAttribute('href') ?? ''
+      const hrefMatch = href.match(NOTE_LINK_HREF)
+      if (!noteId && hrefMatch) {
+        noteId = href.slice('#/note/'.length)
+        element.setAttribute('data-note-id', noteId)
+      }
+      if (noteId) {
+        // Not bağlantısı: adres her zaman uygulama içi ve kimlikten üretilir.
+        element.setAttribute('href', `#/note/${noteId}`)
+      } else if (element.getAttribute('href')) {
+        element.setAttribute('rel', 'noopener noreferrer')
+        element.setAttribute('target', '_blank')
+      }
     }
 
     cleanChildren(element)
@@ -154,6 +178,20 @@ function cleanSpanAttributes(element: Element): void {
   } else {
     element.removeAttribute('class')
   }
+}
+
+/**
+ * Uygulama içi not bağlantılarını düz metne indirger.
+ * Paylaşılan notlarda hedef not bulunmadığı için bağlantı anlamsız kalır.
+ */
+export function stripNoteLinks(html: string): string {
+  if (!html || typeof DOMParser === 'undefined') return html
+
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  for (const anchor of Array.from(doc.body.querySelectorAll('a[data-note-id], a[href^="#/note/"]'))) {
+    anchor.replaceWith(...Array.from(anchor.childNodes))
+  }
+  return doc.body.innerHTML
 }
 
 /** Blok HTML'inden düz metin çıkarır (arama, kelime sayımı). */
@@ -233,5 +271,5 @@ export function inlineMarkdownToHtml(text: string): string {
     .replace(/__([^_]+)__/g, '<strong>$1</strong>')
     .replace(/~~([^~]+)~~/g, '<s>$1</s>')
     .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+|#\/note\/n_[a-z0-9]+)\)/g, '<a href="$2">$1</a>')
 }

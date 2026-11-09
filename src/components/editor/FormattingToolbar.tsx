@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Ban,
   Bold,
+  BookOpen,
   Code,
   Italic,
   Link2,
@@ -10,6 +11,8 @@ import {
   Underline,
 } from 'lucide-react'
 import { escapeHtml } from '../../lib/sanitize'
+import { fold } from '../../lib/search'
+import { useStore } from '../../store/useStore'
 import {
   TEXT_COLOR_CLASS_PREFIX,
   TEXT_COLOR_OPTIONS,
@@ -26,12 +29,15 @@ interface Position {
   left: number
 }
 
-type Menu = 'point' | 'color' | null
+type Menu = 'point' | 'color' | 'note' | null
 
 export function FormattingToolbar() {
+  const notes = useStore((state) => state.notes)
+  const activeNoteId = useStore((state) => state.activeNoteId)
   const [position, setPosition] = useState<Position | null>(null)
   const [menu, setMenu] = useState<Menu>(null)
   const [pointValue, setPointValue] = useState('12')
+  const [noteQuery, setNoteQuery] = useState('')
   const savedRange = useRef<Range | null>(null)
   const interacting = useRef(false)
   const interactionTimer = useRef<number | null>(null)
@@ -102,6 +108,10 @@ export function FormattingToolbar() {
     if (!position) setMenu(null)
   }, [position])
 
+  useEffect(() => {
+    if (menu !== 'note') setNoteQuery('')
+  }, [menu])
+
   if (!position) return null
 
   const restoreSelection = (): Selection | null => {
@@ -167,6 +177,31 @@ export function FormattingToolbar() {
     sync(savedRange.current)
     setPosition(null)
     setMenu(null)
+  }
+
+  const linkCandidates = notes
+    .filter((item) => !item.trashedAt && item.id !== activeNoteId)
+    .filter((item) => {
+      const needle = noteQuery.trim()
+      if (!needle) return true
+      return fold(item.title || 'Başlıksız not').includes(fold(needle))
+    })
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 8)
+
+  /** Seçili metni uygulama içi not bağlantısına çevirir. */
+  const insertNoteLink = (targetId: string, targetTitle: string) => {
+    const selection = restoreSelection()
+    if (!selection) return
+
+    const label = selection.toString().trim() || targetTitle || 'Başlıksız not'
+    const html = `<a href="#/note/${targetId}" data-note-id="${targetId}">${escapeHtml(label)}</a>`
+    document.execCommand('insertHTML', false, html)
+    rememberSelection(selection)
+    sync(savedRange.current)
+    setPosition(null)
+    setMenu(null)
+    setNoteQuery('')
   }
 
   /**
@@ -355,6 +390,74 @@ export function FormattingToolbar() {
           <Icon className="size-4" />
         </button>
       ))}
+
+      <div className="relative shrink-0">
+        <button
+          type="button"
+          onClick={() => setMenu(menu === 'note' ? null : 'note')}
+          title="Not bağlantısı"
+          aria-label="Not bağlantısı"
+          aria-haspopup="menu"
+          aria-expanded={menu === 'note'}
+          className={`grid size-8 place-items-center rounded-lg transition hover:bg-[var(--accent-soft)] hover:text-[var(--text)] ${
+            menu === 'note'
+              ? 'bg-[var(--accent-soft)] text-[var(--text)]'
+              : 'text-[var(--text-soft)]'
+          }`}
+        >
+          <BookOpen className="size-4" />
+        </button>
+
+        {menu === 'note' && (
+          <div
+            className="absolute left-1/2 top-full z-10 mt-1 w-64 -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-pop)]"
+            role="menu"
+            aria-label="Not bağlantısı"
+          >
+            <p className="px-1 pb-1.5 text-[0.6rem] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              Not bağlantısı
+            </p>
+            <input
+              autoFocus
+              value={noteQuery}
+              onChange={(event) => setNoteQuery(event.target.value)}
+              onMouseDown={(event) => {
+                event.stopPropagation()
+                markInteracting()
+              }}
+              onFocus={markInteracting}
+              placeholder="Not ara…"
+              aria-label="Bağlantı verilecek notu ara"
+              className="h-8 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 text-xs font-semibold text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent)]"
+            />
+
+            <div className="mt-1.5 max-h-56 overflow-y-auto">
+              {linkCandidates.length === 0 ? (
+                <p className="px-1 py-3 text-center text-[0.68rem] font-semibold text-[var(--text-faint)]">
+                  Uygun not bulunamadı.
+                </p>
+              ) : (
+                linkCandidates.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => insertNoteLink(item.id, item.title || 'Başlıksız not')}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-bold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                  >
+                    <span className="shrink-0 text-sm">{item.emoji}</span>
+                    <span className="min-w-0 flex-1 truncate">{item.title || 'Başlıksız not'}</span>
+                  </button>
+                ))
+              )}
+            </div>
+
+            <p className="mt-1 px-1 text-[0.58rem] font-semibold text-[var(--text-faint)]">
+              Seçili metin bağlantı olarak kalır.
+            </p>
+          </div>
+        )}
+      </div>
 
       <span className="mx-0.5 h-5 w-px shrink-0 bg-[var(--border)]" aria-hidden="true" />
 

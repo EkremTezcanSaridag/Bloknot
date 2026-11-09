@@ -164,6 +164,20 @@ textarea {
   text-underline-offset: 2px;
 }
 
+/* Uygulama içi not bağlantısı */
+.editable a[data-note-id] {
+  text-decoration: none;
+  border-bottom: 1px dashed color-mix(in oklab, var(--accent) 55%, transparent);
+  border-radius: 3px;
+  padding: 0 2px;
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+}
+
+.editable a[data-note-id]:hover {
+  background: color-mix(in oklab, var(--accent) 20%, transparent);
+  border-bottom-style: solid;
+}
+
 .editable code,
 .inline-code {
   background: var(--surface-2);

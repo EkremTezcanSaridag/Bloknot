@@ -92,6 +92,15 @@ describe('encodeNote / decodeSharedNote', () => {
     expect(decoded?.blocks[0].html).toBe('<b>güvenli</b>')
   })
 
+  it('not bağlantılarını paylaşımda düz metne indirger', () => {
+    const note = sampleNote()
+    note.blocks[0].html =
+      'bak <a href="#/note/n_abc123" data-note-id="n_abc123">hedef not</a> ve devam'
+
+    const decoded = decodeSharedNote(encodeNote(note).token)
+    expect(decoded?.blocks[0].html).toBe('bak hedef not ve devam')
+  })
+
   it('metin boyutu ve rengi sınıflarını paylaşımda korur', () => {
     const note = sampleNote()
     note.blocks[0].html = '<span class="bn-text-size-lg bn-text-color-red">renkli</span>'

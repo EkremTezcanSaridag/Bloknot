@@ -1,7 +1,7 @@
 import LZString from 'lz-string'
 import type { Block, BlockType, Cover, Note } from '../types'
 import { createId } from './id'
-import { sanitizeHtml } from './sanitize'
+import { sanitizeHtml, stripNoteLinks } from './sanitize'
 import { normalizeTableRows } from './table'
 import { SHARED_GROQ_PROXY_URL } from './aiConfig'
 
@@ -111,7 +111,8 @@ export function decodeSharedNote(token: string): SharedNote | null {
 function toShareBlock(block: Block): Omit<Block, 'id'> {
   return {
     type: block.type,
-    html: block.html,
+    // Alıcıda bu notların kimlikleri olmadığı için uygulama bağlantıları düz metne iner.
+    html: stripNoteLinks(block.html),
     ...(block.checked ? { checked: true } : {}),
     ...(block.language ? { language: block.language } : {}),
     ...(block.src ? { src: block.src } : {}),
@@ -133,7 +134,7 @@ function parseBlock(raw: unknown): Block | null {
   return {
     id: createId('b'),
     type,
-    html: sanitizeHtml(trimText(record.html, MAX_DECOMPRESSED_LENGTH)),
+    html: stripNoteLinks(sanitizeHtml(trimText(record.html, MAX_DECOMPRESSED_LENGTH))),
     checked: record.checked === true,
     language: typeof record.language === 'string' ? record.language.slice(0, 20) : undefined,
     src: normalizeImageSrc(record.src),

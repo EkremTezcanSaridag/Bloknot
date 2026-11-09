@@ -176,6 +176,49 @@ export default function App() {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [setPaletteOpen, createNote, setSidebarOpen])
 
+  // Not içindeki uygulama bağlantılarına tıklanınca ilgili notu aç.
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (window.location.hash.startsWith('#/p/')) return
+      const target = event.target as Element | null
+      const anchor = target?.closest?.('a[data-note-id]')
+      if (!anchor) return
+
+      const noteId = anchor.getAttribute('data-note-id')
+      if (!noteId) return
+
+      event.preventDefault()
+      const state = useStore.getState()
+      const note = state.notes.find((item) => item.id === noteId && !item.trashedAt)
+
+      if (note) {
+        state.setActiveNote(note.id)
+      } else {
+        const trashed = state.notes.some((item) => item.id === noteId && item.trashedAt)
+        state.pushToast(
+          trashed ? 'Bağlantıdaki not çöp kutusunda.' : 'Bağlantıdaki not artık bulunamadı.',
+          'danger',
+        )
+      }
+    }
+
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [])
+
+  // Doğrudan #/note/<id> adresiyle açılan notu seç.
+  useEffect(() => {
+    if (!hydrated) return
+    const match = window.location.hash.match(/^#\/note\/(n_[a-z0-9]+)$/i)
+    if (!match) return
+
+    const state = useStore.getState()
+    const note = state.notes.find((item) => item.id === match[1] && !item.trashedAt)
+    if (note) state.setActiveNote(note.id)
+
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+  }, [hydrated])
+
   if (!hydrated) {
     return <Splash />
   }

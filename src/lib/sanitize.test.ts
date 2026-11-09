@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { htmlToMarkdown, htmlToText, sanitizeHtml } from './sanitize'
+import { htmlToMarkdown, htmlToText, sanitizeHtml, stripNoteLinks } from './sanitize'
 
 describe('sanitizeHtml', () => {
   it('script ve olay dinleyicilerini temizler', () => {
@@ -17,6 +17,25 @@ describe('sanitizeHtml', () => {
     expect(result).toContain('rel="noopener noreferrer"')
     expect(result).toContain('target="_blank"')
     expect(result).toContain('href="https://example.com"')
+  })
+
+  it('not bağlantısını kimliğiyle korur ve dış bağlantı davranışı eklemez', () => {
+    const result = sanitizeHtml(
+      '<a href="#/note/n_abc123" data-note-id="n_abc123">İlgili not</a>',
+    )
+    expect(result).toContain('href="#/note/n_abc123"')
+    expect(result).toContain('data-note-id="n_abc123"')
+    expect(result).not.toContain('target="_blank"')
+  })
+
+  it('not bağlantısı adresinden kimliği türetir', () => {
+    const result = sanitizeHtml('<a href="#/note/n_abc123">İlgili not</a>')
+    expect(result).toContain('data-note-id="n_abc123"')
+  })
+
+  it('geçersiz not kimliğini ve adresini temizler', () => {
+    expect(sanitizeHtml('<a data-note-id="javascript:alert(1)">x</a>')).toBe('<a>x</a>')
+    expect(sanitizeHtml('<a href="#/note/kötü">x</a>')).toBe('<a>x</a>')
   })
 
   it('div ve p etiketlerini satır sonuna çevirir', () => {
@@ -79,6 +98,19 @@ describe('sanitizeHtml', () => {
   })
 })
 
+describe('stripNoteLinks', () => {
+  it('not bağlantısını düz metne indirger', () => {
+    expect(
+      stripNoteLinks('bak <a href="#/note/n_abc" data-note-id="n_abc">hedef not</a> ve devam'),
+    ).toBe('bak hedef not ve devam')
+  })
+
+  it('dış bağlantılara dokunmaz', () => {
+    const html = '<a href="https://example.com">örnek</a>'
+    expect(stripNoteLinks(html)).toBe(html)
+  })
+})
+
 describe('htmlToText', () => {
   it('etiketleri temizler ve boşlukları toparlar', () => {
     expect(htmlToText('<strong>merhaba</strong>   dünya<br>yeni satır')).toBe(
@@ -97,6 +129,12 @@ describe('htmlToMarkdown', () => {
   it('bağlantıları ve kodu korur', () => {
     expect(htmlToMarkdown('<a href="https://a.co">git</a> <code>x=1</code>')).toBe(
       '[git](https://a.co) `x=1`',
+    )
+  })
+
+  it('not bağlantısını uygulama içi adresle yazar', () => {
+    expect(htmlToMarkdown('<a href="#/note/n_abc123">İlgili not</a>')).toBe(
+      '[İlgili not](#/note/n_abc123)',
     )
   })
 })
