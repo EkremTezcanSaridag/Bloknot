@@ -445,6 +445,6 @@ export function parseSlideAiResponse(text: string, fallbackTitle = 'Slayt notu')
   if (fromMarkdown) return fromMarkdown
 
   throw new Error(
-    'AI geçerli slayt içeriği döndürmedi. Tekrar dene veya “AI olmadan oluştur” seçeneğini kullan.',
+    'AI geçerli slayt içeriği döndürmedi. Tekrar dene veya “Notu oluştur” ile ham metni kullan.',
   )
 }

@@ -334,6 +334,25 @@ describe('pptx gelişmiş çıkarım', () => {
     expect(deck.slides[0].title).toBe('Görünür slayt')
     expect(deck.warnings?.some((warning) => warning.includes('1 gizli slayt atlandı'))).toBe(true)
   })
+
+  it('yalnızca görsel içeren slaytları ayrı uyarıyla bildirir', async () => {
+    const zip = new JSZip()
+    zip.file('ppt/slides/slide1.xml', wrapSlide(textShape('title', 'Metinli slayt')))
+    zip.file(
+      'ppt/slides/slide2.xml',
+      wrapSlide(
+        '<p:pic><p:nvPicPr><p:cNvPr id="4" name="Resim" descr=""/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>' +
+          '<p:blipFill><a:blip r:embed="rId9"/></p:blipFill><p:spPr/></p:pic>',
+      ),
+    )
+
+    const deck = await parsePptxArchive(zip, 'Sunum')
+
+    expect(deck.slides).toHaveLength(1)
+    expect(
+      deck.warnings?.some((warning) => warning.includes('1 slayt yalnızca görsel içeriyor')),
+    ).toBe(true)
+  })
 })
 
 describe('pdf çıkarımı', () => {

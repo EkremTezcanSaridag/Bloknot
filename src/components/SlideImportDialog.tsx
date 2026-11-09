@@ -169,6 +169,7 @@ export function SlideImportDialog() {
       let deckTitle = deck.title
 
       for (let index = 0; index < chunks.length; index += 1) {
+        if (controller.signal.aborted) return
         if (total > 1) setAiProgress({ done: index, total })
         const chunk = chunks[index]
 
@@ -536,6 +537,16 @@ export function SlideImportDialog() {
                       ? 'AI ile yeniden düzenle'
                       : 'AI ile düzenle'}
                 </button>
+
+                {aiLoading && (
+                  <button
+                    type="button"
+                    onClick={() => aiAbortRef.current?.abort()}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-extrabold text-[var(--text-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                  >
+                    İptal
+                  </button>
+                )}
 
                 {aiApplied && (
                   <button

@@ -262,6 +262,8 @@ interface SlideCollector {
   title: string
   items: SlideTextItem[]
   tables: string[][][]
+  /** Slaytta resim var mı? (Metin çıkmayan görsel slaytları ayırt etmek için.) */
+  hasVisual: boolean
 }
 
 function collectTextShape(shape: Element, collector: SlideCollector): void {
@@ -465,6 +467,7 @@ async function collectShapeTree(
         await collectGraphicFrame(zip, slidePath, relationships, element, collector)
         break
       case 'pic':
+        collector.hasVisual = true
         collectPictureAltText(element, collector)
         break
       default:
@@ -489,6 +492,8 @@ function pickFallbackTitle(items: SlideTextItem[]): string {
 interface ParsedSlide {
   slide: Slide
   hidden: boolean
+  /** Slaytta metin dışında görsel içerik var mı? */
+  hasVisual: boolean
 }
 
 async function parseSlide(
@@ -498,14 +503,14 @@ async function parseSlide(
 ): Promise<ParsedSlide> {
   const slideXml = await zip.file(slidePath)?.async('string')
   if (!slideXml) {
-    return { slide: { number, title: '', items: [], notes: [] }, hidden: false }
+    return { slide: { number, title: '', items: [], notes: [] }, hidden: false, hasVisual: false }
   }
 
   const document = parseXml(slideXml)
   // Sunumda gizlenmiş slaytlar (<p:sld show="0">) nota dahil edilmez.
   const hidden = attr(document.documentElement, 'show') === '0'
   const relationships = await getSlideRelationships(zip, slidePath)
-  const collector: SlideCollector = { title: '', items: [], tables: [] }
+  const collector: SlideCollector = { title: '', items: [], tables: [], hasVisual: false }
 
   const shapeTree = firstByLocalName(document, 'spTree')
   if (shapeTree) {
@@ -536,6 +541,7 @@ async function parseSlide(
       tables: collector.tables.length ? collector.tables : undefined,
     },
     hidden,
+    hasVisual: collector.hasVisual,
   }
 }
 
@@ -548,9 +554,10 @@ export async function parsePptxArchive(
   const slides: Slide[] = []
   let skipped = 0
   let hiddenCount = 0
+  let imageOnly = 0
 
   for (let index = 0; index < slidePaths.length; index += 1) {
-    const { slide, hidden } = await parseSlide(zip, slidePaths[index], index + 1)
+    const { slide, hidden, hasVisual } = await parseSlide(zip, slidePaths[index], index + 1)
 
     if (hidden) {
       hiddenCount += 1
@@ -564,7 +571,8 @@ export async function parsePptxArchive(
       slide.notes.length > 0
 
     if (!hasContent) {
-      skipped += 1
+      if (hasVisual) imageOnly += 1
+      else skipped += 1
       continue
     }
 
@@ -575,6 +583,11 @@ export async function parsePptxArchive(
   const warnings: string[] = []
   if (skipped) {
     warnings.push(`${skipped} slayt atlandı: seçilebilir metin bulunamadı.`)
+  }
+  if (imageOnly) {
+    warnings.push(
+      `${imageOnly} slayt yalnızca görsel içeriyor; metin çıkarılamadı (OCR yok).`,
+    )
   }
   if (hiddenCount) {
     warnings.push(`${hiddenCount} gizli slayt atlandı.`)

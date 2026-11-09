@@ -84,7 +84,7 @@ Kendi anahtarların varsayılan olarak yalnızca sekmede tutulur. İstersen "Bu 
 
 **Slayttan not** penceresinde bir `.pptx` veya `.pdf` dosyası seçtiğinde metin tamamen tarayıcında çıkarılır; dosya hiçbir sunucuya yüklenmez.
 
-- **PPTX:** başlık ve alt başlık yer tutucuları, madde listeleri, grup içindeki şekiller, tablolar, grafik başlığı/seri/kategori/değerleri, SmartArt metinleri ve konuşmacı notları okunur; gizli slaytlar atlanır.
+- **PPTX:** başlık ve alt başlık yer tutucuları, madde listeleri, grup içindeki şekiller, tablolar, grafik başlığı/seri/kategori/değerleri, SmartArt metinleri ve konuşmacı notları okunur; gizli slaytlar atlanır, yalnızca görsel içeren slaytlar ayrıca bildirilir.
 - **PDF:** font boyutundan ve kalın yazıdan başlık seçilir, satır kaydırmaları birleştirilir, iki sütunlu sayfalar sütun sırasına göre dizilir, sayfa numaraları ve sayfalarda tekrar eden üst/alt bilgi satırları ayıklanır.
 - **AI adımı isteğe bağlıdır.** “Düzenle ve netleştir”, “Slayt slayt özetle” veya “Ders notuna çevir” modlarından birini seçip AI ile düzenleyebilirsin. Yalnızca çıkarılan slayt metni AI sağlayıcısına gönderilir; dosya gönderilmez.
 - **Slayt seçimi.** Önizlemede slaytları tek tek işaretleyerek nota ve AI’ya dahil edilecekleri seç; kapak, teşekkür veya ek slaytları kolayca çıkar.
