@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent } from 'react'
+import { useRef, type ClipboardEvent, type KeyboardEvent } from 'react'
 import { Minus, Plus, Trash2 } from 'lucide-react'
 import type { Block } from '../../types'
 import {
@@ -7,6 +7,8 @@ import {
   addTableColumn,
   addTableRow,
   normalizeTableRows,
+  parseClipboardGrid,
+  pasteTableCells,
   removeTableColumn,
   removeTableRow,
   setTableCell,
@@ -79,6 +81,24 @@ export function TableBlock({ block, onChange }: TableBlockProps) {
     }
   }
 
+  const handlePaste = (
+    event: ClipboardEvent<HTMLInputElement>,
+    row: number,
+    column: number,
+  ) => {
+    const grid = parseClipboardGrid(event.clipboardData.getData('text/plain'))
+    if (!grid) return
+
+    event.preventDefault()
+    const next = pasteTableCells(rows, row, column, grid)
+    commit(next)
+
+    const gridWidth = Math.max(...grid.map((item) => item.length))
+    const targetRow = Math.min(row + grid.length - 1, next.length - 1)
+    const targetColumn = Math.min(column + gridWidth - 1, next[0].length - 1)
+    focusCell(targetRow, targetColumn)
+  }
+
   const toolbarButton =
     'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.66rem] font-bold text-[var(--text-faint)] transition hover:bg-[var(--surface)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-40'
 
@@ -105,6 +125,7 @@ export function TableBlock({ block, onChange }: TableBlockProps) {
                           commit(setTableCell(rows, rowIndex, columnIndex, event.target.value))
                         }
                         onKeyDown={(event) => handleKeyDown(event, rowIndex, columnIndex)}
+                        onPaste={(event) => handlePaste(event, rowIndex, columnIndex)}
                         placeholder={isHeader ? `Başlık ${columnIndex + 1}` : ''}
                         aria-label={
                           isHeader

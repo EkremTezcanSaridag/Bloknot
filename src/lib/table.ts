@@ -74,6 +74,65 @@ export function setTableCell(rows: string[][], row: number, column: number, valu
   )
 }
 
+/**
+ * Panodan gelen metni hücre ızgarasına çevirir.
+ * Tek hücreli düz metinse `null` döner; böylece normal yapıştırma bozulmaz.
+ */
+export function parseClipboardGrid(text: string): string[][] | null {
+  const normalized = text.replace(/\r\n?/g, '\n')
+  if (!normalized.includes('\t') && !normalized.includes('\n')) return null
+
+  const lines = normalized.split('\n')
+  while (lines.length && lines[lines.length - 1] === '') lines.pop()
+  if (!lines.length) return null
+
+  return lines.map((line) => line.split('\t'))
+}
+
+/** Panodan gelen ızgarayı, verilen hücreden başlayarak tabloya yerleştirir. */
+export function pasteTableCells(
+  rows: string[][],
+  startRow: number,
+  startColumn: number,
+  grid: string[][],
+): string[][] {
+  const normalized = normalizeTableRows(rows)
+  const cleanGrid = grid
+    .map((row) => row.map((cell) => cell.replace(/\r?\n/g, ' ').slice(0, MAX_CELL_LENGTH)))
+    .filter((row) => row.length > 0)
+
+  if (!cleanGrid.length) return normalized
+
+  const gridWidth = Math.max(...cleanGrid.map((row) => row.length))
+  const targetRows = Math.min(
+    MAX_TABLE_ROWS,
+    Math.max(normalized.length, startRow + cleanGrid.length),
+  )
+  const targetColumns = Math.min(
+    MAX_TABLE_COLUMNS,
+    Math.max(normalized[0].length, startColumn + gridWidth),
+  )
+
+  const next: string[][] = []
+  for (let row = 0; row < targetRows; row += 1) {
+    const cells: string[] = []
+    for (let column = 0; column < targetColumns; column += 1) {
+      cells.push(normalized[row]?.[column] ?? '')
+    }
+    next.push(cells)
+  }
+
+  cleanGrid.forEach((gridRow, rowOffset) => {
+    gridRow.forEach((cell, columnOffset) => {
+      const row = startRow + rowOffset
+      const column = startColumn + columnOffset
+      if (row < targetRows && column < targetColumns) next[row][column] = cell
+    })
+  })
+
+  return normalizeTableRows(next)
+}
+
 function escapeCell(value: string): string {
   return value.replace(/\|/g, '\\|').trim()
 }

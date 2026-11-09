@@ -6,6 +6,7 @@ import {
   Download,
   FileText,
   HardDrive,
+  History,
   Image as ImageIcon,
   ListTree,
   Maximize2,
@@ -28,9 +29,10 @@ import { fullDate, readingTime } from '../../lib/date'
 import { focusEditable } from '../../lib/dom'
 import { downloadText, noteToMarkdown, slugify } from '../../lib/markdown'
 import { exportBackup } from '../../lib/backup'
-import { htmlToText } from '../../lib/sanitize'
+import { noteWordCount } from '../../lib/stats'
 import { BlockList } from './BlockList'
 import { OutlinePanel } from './OutlinePanel'
+import { NoteHistoryDialog } from './NoteHistoryDialog'
 import { EmptyState } from '../EmptyState'
 import { EmojiPicker } from '../EmojiPicker'
 import { CoverPicker } from '../CoverPicker'
@@ -77,6 +79,7 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
   const [coverOpen, setCoverOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [outlineOpen, setOutlineOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const moreRef = useRef<HTMLDivElement>(null)
@@ -122,10 +125,7 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [focusMode, setFocusMode])
 
-  const words = useMemo(
-    () => note.blocks.reduce((total, block) => total + htmlToText(block.html).split(/\s+/).filter(Boolean).length, 0),
-    [note.blocks],
-  )
+  const words = useMemo(() => noteWordCount(note), [note])
 
   const commitTag = () => {
     const cleaned = tagInput.trim().replace(/^#/, '')
@@ -348,6 +348,15 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
                     >
                       Kopyasını oluştur
                     </MenuItem>
+                    <MenuItem
+                      icon={History}
+                      onClick={() => {
+                        setMoreOpen(false)
+                        setHistoryOpen(true)
+                      }}
+                    >
+                      Sürüm geçmişi
+                    </MenuItem>
 
                     <div className="my-1 h-px bg-[var(--border)]" />
 
@@ -567,6 +576,8 @@ function NoteEditor({ note }: { note: NonNullable<ReturnType<typeof selectNote>>
         onClose={() => setCoverOpen(false)}
         onSelect={(cover) => updateNote(note.id, { cover })}
       />
+
+      <NoteHistoryDialog open={historyOpen} note={note} onClose={() => setHistoryOpen(false)} />
     </div>
   )
 }

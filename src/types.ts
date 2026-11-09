@@ -46,6 +46,9 @@ export interface Note {
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 
+/** Not listesi sıralaması. */
+export type NoteSort = 'updated' | 'created' | 'title'
+
 export type AccentId = 'lavanta' | 'okyanus' | 'orman' | 'gunbatimi' | 'kiraz'
 
 export type AiProvider =
@@ -62,6 +65,7 @@ export interface Settings {
   sounds: boolean
   confetti: boolean
   compact: boolean
+  noteSort: NoteSort
   lastBackupAt: number | null
   welcomeSeen: boolean
   aiProvider: AiProvider
@@ -81,6 +85,22 @@ export interface Snapshot {
   id: string
   createdAt: number
   notes: Note[]
+}
+
+/** Bir notun belirli bir andaki yerel sürümü. */
+export interface NoteVersion {
+  id: string
+  noteId: string
+  createdAt: number
+  title: string
+  emoji: string
+  tags: string[]
+  blocks: Block[]
+  words: number
+  /** Listede gösterilen kısa içerik önizlemesi. */
+  preview: string
+  /** İçerik parmak izi; aynı içerik tekrar kaydedilmesin diye. */
+  signature: string
 }
 
 export interface Template {

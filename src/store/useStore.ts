@@ -6,6 +6,7 @@ import { newBlock } from '../lib/markdown'
 import { sanitizeHtml } from '../lib/sanitize'
 import { createSeedNotes } from '../lib/seed'
 import { appStorage } from '../lib/storage'
+import { clearAllNoteHistory, clearNoteHistory } from '../lib/history'
 import { normalizeTableRows } from '../lib/table'
 import {
   DEFAULT_AI_BASE_URL,
@@ -99,6 +100,7 @@ const DEFAULT_SETTINGS: Settings = {
   sounds: true,
   confetti: true,
   compact: false,
+  noteSort: 'updated',
   lastBackupAt: null,
   welcomeSeen: false,
   aiProvider: DEFAULT_AI_PROVIDER,
@@ -303,9 +305,15 @@ export const useStore = create<Store>()(
               : (notes.find((note) => !note.trashedAt)?.id ?? null),
           }
         })
+
+        void clearNoteHistory(noteId)
       },
 
       emptyTrash: () => {
+        const trashedIds = get()
+          .notes.filter((note) => note.trashedAt)
+          .map((note) => note.id)
+
         set((state) => {
           const notes = state.notes.filter((note) => !note.trashedAt)
           const activeStillExists = notes.some((note) => note.id === state.activeNoteId)
@@ -316,6 +324,8 @@ export const useStore = create<Store>()(
               : (notes[0]?.id ?? null),
           }
         })
+
+        for (const noteId of trashedIds) void clearNoteHistory(noteId)
       },
 
       duplicateNote: (noteId) => {
@@ -553,6 +563,8 @@ export const useStore = create<Store>()(
           filter: { kind: 'all' },
           dialog: null,
         })
+
+        void clearAllNoteHistory()
       },
 
       setSearch: (value) => set({ search: value }),

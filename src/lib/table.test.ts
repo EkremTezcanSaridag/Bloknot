@@ -5,7 +5,9 @@ import {
   addTableRow,
   defaultTableRows,
   normalizeTableRows,
+  parseClipboardGrid,
   parseTableRow,
+  pasteTableCells,
   removeTableColumn,
   removeTableRow,
   setTableCell,
@@ -66,6 +68,50 @@ describe('tablo düzenleme', () => {
     )
     expect(rows[1][0]).toBe('yeni')
     expect(rows[0][0]).toBe('a')
+  })
+})
+
+describe('panodan tabloya yapıştırma', () => {
+  it('tek hücreli düz metni ızgara saymaz', () => {
+    expect(parseClipboardGrid('sade metin')).toBeNull()
+  })
+
+  it('sekmeyle ayrılmış satırları ayrıştırır', () => {
+    expect(parseClipboardGrid('a\tb\nc\td\n')).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ])
+  })
+
+  it('tek sütunlu çok satırlı metni satırlara böler', () => {
+    expect(parseClipboardGrid('bir\niki\nüç')).toEqual([['bir'], ['iki'], ['üç']])
+  })
+
+  it('ızgarayı verilen hücreden başlayarak yerleştirir', () => {
+    const rows = [
+      ['a', 'b'],
+      ['c', 'd'],
+    ]
+    const next = pasteTableCells(rows, 1, 1, [
+      ['x', 'y'],
+      ['z', 'w'],
+    ])
+
+    expect(next).toEqual([
+      ['a', 'b', ''],
+      ['c', 'x', 'y'],
+      ['', 'z', 'w'],
+    ])
+  })
+
+  it('tabloyu gerektiği kadar büyütür ve sınırları aşmaz', () => {
+    const next = pasteTableCells([['a']], 0, 0, [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+    ])
+    expect(next).toHaveLength(2)
+    expect(next[0]).toHaveLength(3)
+    expect(next[1][2]).toBe('6')
   })
 })
 

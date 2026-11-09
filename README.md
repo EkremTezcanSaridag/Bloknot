@@ -9,7 +9,9 @@ Bloknot, tarayıcında çalışan; hesap açmadan kullanabileceğin, blok tabanl
 - **Hesap yok, sunucu yok.** Notların yalnızca senin tarayıcında (IndexedDB) saklanır.
 - **Blok tabanlı düzenleme.** Başlık, liste, yapılacak, alıntı, not kutusu, kod, tablo, görsel ve daha fazlası.
 - **Sürükle-bırak.** Blokları tutamaçtan tutup istediğin yere taşı.
-- **Tablo bloğu.** Satır/sütun ekle-sil, başlık satırını aç-kapat; Tab ile hücreler arasında gez.
+- **Tablo bloğu.** Satır/sütun ekle-sil, başlık satırını aç-kapat; Tab ile hücreler arasında gez, panodan çok hücreli veri yapıştır.
+- **Sürüm geçmişi.** Notun son 30 sürümü otomatik saklanır; önizle, geri yükle veya tek tek sil.
+- **Akıllı sıralama.** Notları son düzenleme, oluşturulma veya başlığa göre sırala; tercih hatırlanır.
 - **İçindekiler.** Uzun notlarda başlıklardan oluşan bir içindekiler paneli; başlığa tıkla, nota atla.
 - **Yazdır / PDF.** Notu temiz bir kâğıt düzeninde yazdır veya PDF olarak kaydet.
 - **Türkçe duyarlı arama.** “guzel” yazınca “güzel”i de bulur; sonuçta eşleşme vurgulanır.

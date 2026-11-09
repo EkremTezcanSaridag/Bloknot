@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
+  ArrowUpDown,
   DatabaseBackup,
   FileText,
   Hash,
@@ -17,6 +18,7 @@ import {
 import { useStore } from '../store/useStore'
 import { dayGroup, relativeTime } from '../lib/date'
 import { noteSnippet, highlightParts, searchNotes } from '../lib/search'
+import { NOTE_SORTS, nextNoteSort, noteSortLabel, sortNotes } from '../lib/sort'
 import { EMOJI_CHOICES } from '../lib/covers'
 import { playSound } from '../lib/sound'
 import { Logo } from './Logo'
@@ -69,18 +71,18 @@ export function Sidebar() {
     if (filter.kind === 'favorites') list = list.filter((note) => note.favorite)
     if (filter.kind === 'tag' && filter.tag) list = list.filter((note) => note.tags.includes(filter.tag!))
     if (search.trim()) list = searchNotes(list, search)
-    return [...list].sort((a, b) => b.updatedAt - a.updatedAt)
-  }, [activeNotes, trashedNotes, filter, search])
+    return sortNotes(list, settings.noteSort)
+  }, [activeNotes, trashedNotes, filter, search, settings.noteSort])
 
   const groups = useMemo(() => {
-    if (filter.kind !== 'all' || search.trim()) return null
+    if (filter.kind !== 'all' || search.trim() || settings.noteSort !== 'updated') return null
     const map = new Map<string, typeof displayed>()
     for (const note of displayed) {
       const label = dayGroup(note.updatedAt)
       map.set(label, [...(map.get(label) ?? []), note])
     }
     return Array.from(map.entries())
-  }, [displayed, filter.kind, search])
+  }, [displayed, filter.kind, search, settings.noteSort])
 
   const handleNewNote = () => {
     const emoji = EMOJI_CHOICES[Math.floor(Math.random() * EMOJI_CHOICES.length)]
@@ -224,18 +226,33 @@ export function Sidebar() {
       )}
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col">
-        <p className="px-4 pb-1.5 text-[0.62rem] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">
-          {filter.kind === 'trash'
-            ? 'Çöp kutusu'
-            : filter.kind === 'favorites'
-              ? 'Favoriler'
-              : filter.kind === 'tag'
-                ? `#${filter.tag ?? ''}`
-                : search
-                  ? 'Arama sonuçları'
-                  : 'Notlar'}
-          <span className="ml-1.5 font-bold opacity-70">{displayed.length}</span>
-        </p>
+        <div className="flex items-center justify-between gap-2 px-4 pb-1.5">
+          <p className="text-[0.62rem] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">
+            {filter.kind === 'trash'
+              ? 'Çöp kutusu'
+              : filter.kind === 'favorites'
+                ? 'Favoriler'
+                : filter.kind === 'tag'
+                  ? `#${filter.tag ?? ''}`
+                  : search
+                    ? 'Arama sonuçları'
+                    : 'Notlar'}
+            <span className="ml-1.5 font-bold opacity-70">{displayed.length}</span>
+          </p>
+
+          {filter.kind !== 'trash' && (
+            <button
+              type="button"
+              onClick={() => updateSettings({ noteSort: nextNoteSort(settings.noteSort) })}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.6rem] font-bold text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text-soft)]"
+              title={`Sıralama: ${noteSortLabel(settings.noteSort)} · tıkla ve değiştir`}
+              aria-label={`Sıralamayı değiştir (şu an: ${noteSortLabel(settings.noteSort)})`}
+            >
+              <ArrowUpDown className="size-3" />
+              {NOTE_SORTS.find((item) => item.value === settings.noteSort)?.short}
+            </button>
+          )}
+        </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
           {filter.kind === 'trash' && trashedNotes.length > 0 && (

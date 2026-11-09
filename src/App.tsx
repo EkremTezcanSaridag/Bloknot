@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store/useStore'
 import { maybeSaveSnapshot } from './lib/backup'
+import { saveNoteVersion } from './lib/history'
 import { Sidebar } from './components/Sidebar'
 import { Editor } from './components/editor/Editor'
 import { CommandPalette } from './components/CommandPalette'
@@ -106,6 +107,49 @@ export default function App() {
     }, 5 * 60_000)
     return () => window.clearInterval(interval)
   }, [hydrated])
+
+  // Düzenleme durunca notun sürümünü geçmişe kaydet.
+  useEffect(() => {
+    if (!hydrated || !activeNote) return
+    const noteId = activeNote.id
+    const timer = window.setTimeout(() => {
+      const note = useStore.getState().notes.find((item) => item.id === noteId)
+      if (note) void saveNoteVersion(note)
+    }, 10_000)
+    return () => window.clearTimeout(timer)
+  }, [hydrated, activeNote?.id, activeNote?.updatedAt])
+
+  // Not değiştirirken önceki notun son hâlini kaçırma.
+  const previousNoteId = useRef<string | null>(null)
+  useEffect(() => {
+    const previous = previousNoteId.current
+    previousNoteId.current = activeNote?.id ?? null
+    if (!previous || previous === activeNote?.id) return
+
+    const note = useStore.getState().notes.find((item) => item.id === previous)
+    if (note) void saveNoteVersion(note)
+  }, [activeNote?.id])
+
+  useEffect(() => {
+    if (!hydrated) return
+    const interval = window.setInterval(() => {
+      const state = useStore.getState()
+      const note = state.notes.find((item) => item.id === state.activeNoteId)
+      if (note) void saveNoteVersion(note)
+    }, 3 * 60_000)
+    return () => window.clearInterval(interval)
+  }, [hydrated])
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== 'hidden') return
+      const state = useStore.getState()
+      const note = state.notes.find((item) => item.id === state.activeNoteId)
+      if (note) void saveNoteVersion(note)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
